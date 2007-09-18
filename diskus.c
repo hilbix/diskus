@@ -2,6 +2,8 @@
  *
  * Disk geometry checking utility
  *
+ * Copyright (C)2007 Valentin Hilbig <webmaster@scylla-charybdis.com>
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of the
@@ -18,9 +20,11 @@
  * 02110-1301 USA.
  *
  * $Log$
- * Revision 1.1  2007-09-18 03:05:46  tino
- * First version
+ * Revision 1.2  2007-09-18 03:08:53  tino
+ * Forgot the Copyright.
  *
+ * Revision 1.1  2007/09/18 03:05:46  tino
+ * First version
  */
 
 #include "tino/alarm.h"
