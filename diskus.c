@@ -20,7 +20,10 @@
  * 02110-1301 USA.
  *
  * $Log$
- * Revision 1.3  2007-09-18 03:15:09  tino
+ * Revision 1.4  2007-09-18 03:24:42  tino
+ * Usage made better
+ *
+ * Revision 1.3  2007/09/18 03:15:09  tino
  * Minor BUG removed.
  *
  * Revision 1.2  2007/09/18 03:08:53  tino
@@ -354,7 +357,10 @@ main(int argc, char **argv)
 
   argn	= tino_getopt(argc, argv, 1, 1,
 		      TINO_GETOPT_VERSION(DISKUS_VERSION)
-		      " blockdev",
+		      " blockdev\n"
+		      "	This is a disk geometry checking tool.  It writes sectors\n"
+		      "	with individual IDs which later can be checked."
+		      ,
 
 		      TINO_GETOPT_USAGE
 		      "help	this help"
@@ -415,7 +421,8 @@ main(int argc, char **argv)
 
 		      TINO_GETOPT_LLONG
 		      TINO_GETOPT_SUFFIX
-		      "start	start position (must be a multiple of 512)"
+		      "start N	start position (must be a multiple of 512)\n"
+		      "		You can add a BKMGT suffix for Byte KB MB .."
 		      , &cfg.pos,
 
 		      TINO_GETOPT_FLAG
