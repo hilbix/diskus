@@ -20,7 +20,10 @@
  * 02110-1301 USA.
  *
  * $Log$
- * Revision 1.2  2007-09-18 03:08:53  tino
+ * Revision 1.3  2007-09-18 03:15:09  tino
+ * Minor BUG removed.
+ *
+ * Revision 1.2  2007/09/18 03:08:53  tino
  * Forgot the Copyright.
  *
  * Revision 1.1  2007/09/18 03:05:46  tino
@@ -211,7 +214,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       cfg->ts	= ts;
       if (!end || *end!=']')
 	{
-	  if (cfg->errtype!=3)
+	  if (cfg->errtype!=4)
 	    printf("invalid signature(2) in sector %lld\n", cfg->nr);
 	  cfg->errtype	= 4;
 	  cfg->err++;
@@ -222,7 +225,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	{
 	  if (cfg->errtype!=5)
 	    printf("data mismatch in sector %lld\n", cfg->nr);
-	  cfg->errtype	= 4;
+	  cfg->errtype	= 5;
 	  cfg->err++;
 	  continue;
 	}

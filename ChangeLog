@@ -1,0 +1,4 @@
+2007-09-18    <tino@firebird.03.softkill.net>
+
+	* diskus.c (check_worker): bug removed
+
