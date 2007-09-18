@@ -1,0 +1,5 @@
+Just a first version.
+
+There is a bug in that it tries to read past the device end.
+In this case you do not get EOF, instead you see an IO error
+and see some ugly kernel entries in the syslog.

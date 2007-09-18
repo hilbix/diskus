@@ -1,0 +1,20 @@
+Disk geometry checking tool
+# $Header$
+#
+# $Log$
+# Revision 1.1  2007-09-18 03:05:46  tino
+# First version
+#
+
+This program checks the disk geometry by writing sectors with a
+numbered ID to the harddrive.  THIS ERASES ALL DATA ON THE DEVICE!
+Later you can verify if the disk got the data correctly.  DISKUS will
+then detect if sectors are written wrong (to the wrong position or
+with bit errors).
+
+You can also NUL the drive (like dd if=/dev/zero of=/dev/hdwhatever),
+just checkread it or do a hexdump.
+
+This is no tool to write bit check patterns to the harddrive or erase
+your harddrive according to DOD algorithms.  The difference to dd is,
+that this here uses O_DIRECT/O_SYNC and has a little progress meter.
