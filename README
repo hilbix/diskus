@@ -1,0 +1,131 @@
+$Header$
+
+Disk geometry checking utility
+
+Warning:
+========
+
+I do not test fresh code long before I do release the DISKUS code.  So
+it can be considered beta code and may contain bugs.  This especially
+is true for recent versions.
+
+DISKUS is a system diagnostic tool.  IMPROPER USE CERTAINLY WILL
+DESTROY DATA!  Diskus must overwrite complete partitions to do the
+job, so this is no bug.
+
+Testing this tool shall be safe as long as you never use -write.
+That's what this option is for.  If you try out -write, then be sure
+never to use it on files, partitions or disks/devices which contain
+valuable data.  Also double check the device name.  Better triple
+check it *before* you add -write on the command line.
+
+When you try it with option -write, be sure to only run it on drives
+or partitions which do not contain any data which is important.
+
+If you ever accidentally destroy data with DISKUS then you are
+responsible for this yourself, you cannot blame anybody else for it,
+as you have been warned.
+
+
+Compile:
+========
+
+To compile just do:
+	make
+
+To run it try something like:
+	diskus -help
+	diskus -dump /dev/sda
+
+
+Examples:
+=========
+
+Following command needs the write option and therefor does nothing:
+
+./diskus -gen -bs 1M /dev/sdb
+
+This checks the previous contents written to the drive using -gen:
+
+./diskus -async -bs 1M -check /dev/sdb
+
+
+Rationale:
+==========
+
+Why I created DISKUS:
+
+Some harddisks are failing.  They do not just work or do not work.
+They do completely unpredictable things.  Things, you perhaps never
+think harddisk will do.  Here are the examples what I have observed
+myself:
+
+- Read errors are not reported.  Instead arbitrary random data is
+transmitted to the computer.  This may be bit errors or complete
+garbled sector data.  This bug may be permanent, that is, the sector
+reliably tells wrong data, or it may be sporadic, that is, this
+happens only sometimes or at different sectors.
+
+- Sectors are written to the wrong place.  This even can happen a
+single sector within bigger write batches, so it's not a wrong sector
+number transmitted by the computer.  The bad thing on such a situation
+is, that not only the sector is not there, it also destroys data
+somewhere else on the same hard drive.
+
+- Drives start to behave erratic but this problem vanishes after a
+power cycle of the drive.  I even could observe that drives start to
+fill up their relocated sector list erroneously.  After a power cycle
+you cannot observe any error.
+
+- Some drives suddenly die on a power cycle.  Before they worked fine.
+This usually means, that the drives BIOS became unreadable, such that
+the drive cannot boot up.
+
+- The drive's geometry is not supported by the underlying hardware.
+For example, if you put in a 2 GB flash card into your card reader,
+the uppermost bit is not supported and silently discarded, such that
+you overwrite the first GB with the second GB.
+
+DISKUS can detect nearly all these cases.  However it is not a bit
+pattern nor a harddrive stress testing tool.  However without a tool
+like DISKUS it is not easy to diagnose problems like those noted
+above.
+
+I wrote it, because I needed it.  How much I needed it I realized when
+I started to use it to test my hard drives before I start to rely upon
+them.  I have several dozen harddrives, mostly external USB drives,
+connected to my computer, and when something unusal happens, I now can
+take the drive offline and test it.
+
+Note that you can observe similar problems on failing computer
+hardware.  So errors reported by DISKUS need not show that a hard
+drive is defective.  However you then will observe similar problems
+with other drives on the same computer.  So if in doubt, try to
+reproduce the outcome of the test on another computer, too.
+
+
+Bugs:
+=====
+
+- Currently writing to a drive stops with an error.  This is because I
+did not find a reliable way to detect the drive size.  For example,
+CD-ROM drives report wrong sizes on certain CD-ROMs.
+
+- On certain errors a re-seek would be needed, such that the -check
+option can recover to the correct position.  This is not yet
+implemented.
+
+- DISKUS cannot skip past some type of errors.  This is by design and
+will never be fixed.
+
+- The screen output is suboptimal.  Sometimes you will see garbled
+lines on screen because the output was printed over some progress
+meter text.  In this case use IO redirection and an editor.
+
+-Tino <webmaster@scylla-charybdis.com>
+http://www.scylla-charybdis.com/tool.php/diskus
+
+$Log$
+Revision 1.1  2007-12-10 03:01:07  tino
+added
+
