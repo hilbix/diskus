@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.5  2007-12-10 03:01:43  tino
+ * dist
+ *
  * Revision 1.4  2007-09-18 03:24:42  tino
  * Usage made better
  *
@@ -55,6 +58,7 @@ struct diskus_cfg
     TINO_DATA	*stdout;
     int		signpos;
     int		err, errtype;
+    int		idpos;
     long long	ts;
   };
 
@@ -151,7 +155,7 @@ create_sector(long long nr, unsigned char *ptr, char *id, int len)
       ptr[i]	^= i;
       ptr[511-i]	^= i;
     }
-  memcpy(ptr+(nr%(512-len)), id, len);
+  memcpy(ptr+(nr%(512-len+1)), id, len);
 }
 
 static int
@@ -174,7 +178,7 @@ static void
 check_worker(CFG, unsigned char *ptr, size_t len)
 {
   int		i;
-  char		sect[512];
+  unsigned char	sect[512];
 
   if (!ptr)
     return;
@@ -194,7 +198,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	  continue;
 	}
       end	= 0;
-      cmp	= strtoll(ptr+off+8, &end, 16);
+      cmp	= strtoll((char *)(ptr+off+8), &end, 16);
       if (!end || *end!=' ')
 	{
 	  if (cfg->errtype!=2)
@@ -223,7 +227,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	  cfg->err++;
 	  continue;
 	}
-      create_sector(cfg->nr, sect, ptr+off, (end-(char *)ptr)-off+1);
+      create_sector(cfg->nr, sect, (char *)(ptr+off), (end-(char *)ptr)-off+1);
       if (memcmp(ptr, sect, 512))
 	{
 	  if (cfg->errtype!=5)
@@ -280,22 +284,28 @@ run_read(CFG, const char *name, worker_fn worker)
   int		fd, got;
   void		*block;
 
+  block		= tino_alloc(cfg->bs);
   if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? 0 : O_DIRECT)))<0)
     {
       tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
       return 1;
     }
-  cfg->nr	= 0;
-  if (cfg->pos)
+  if (tino_file_read_allE(fd, block, cfg->bs)<0)
     {
-      cfg->nr	= cfg->pos/512;
-      if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
+      tino_file_closeE(fd);
+      if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? O_DIRECT : 0)))<0)
 	{
-	  tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
-	  return 2;
+	  tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
+	  return 1;
 	}
+      fprintf(stderr, "WTTDU108W (opened with reverse option -async)\n");
     }
-  block		= tino_alloc(cfg->bs);
+  cfg->nr	= cfg->pos/512ull;
+  if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
+    {
+      tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
+      return 2;
+    }
   worker(cfg, NULL, 0);
   while ((got=tino_file_read_allE(fd, block, cfg->bs))>0)
     {
@@ -400,7 +410,19 @@ main(int argc, char **argv)
 		      "gen	'gen' mode, create unique test data for check mode"
 		      , &cfg.mode,
 		      mode_gen,
-
+#if 0
+		      TINO_GETOPT_INT
+		      TINO_GETOPT_DEFAULT
+		      TINO_GETOPT_MAX
+		      "idpos	position of the ID string in the sector\n"
+		      "		The ID usually is 36 byte long.  It cannot wrap in the sector\n"
+		      "		so if the position is too high it lands somewhere else.\n"
+		      "		negative values make the ID roam, that is, it's position moves.\n"
+		      "		Use a high negative prime number to make it look like random"
+		      , &cfg.idpos,
+		      -1,
+		      4096-36+1,
+#endif
 		      TINO_GETOPT_STRING
 		      TINO_GETOPT_DEFAULT
 		      "mode X	set mode to operate in (dump, etc.)"
@@ -412,7 +434,20 @@ main(int argc, char **argv)
 		      "null	'null' mode, write NUL to drive"
 		      , &cfg.mode,
 		      mode_null,
+#if 0
+		      TINO_GETOPT_STRING
+		      TINO_GETOPT_DEFAULT
+		      "out	define the output pattern for option -pattern"
+		      , &cfg.outpattern,
+		      "0x55 0xaa",
 
+		      TINO_GETOPT_STRINGFLAGS
+		      TINO_GETOPT_MIN
+		      "pattern	'pattern' mode, write a pattern to drive\n"
+		      "		The pattern is defined with the option -out"
+		      , &cfg.mode,
+		      mode_pattern,
+#endif
 		      TINO_GETOPT_STRINGFLAGS
 		      TINO_GETOPT_MIN
 		      "read	'read' mode, just read data, do not output anything"
@@ -434,6 +469,11 @@ main(int argc, char **argv)
   if (argn<=0)
     return 1;
 
+  if (cfg.pos&(512-1))
+    {
+      fprintf(stderr, "WTTDU107W %lld (rounded down start value)\n", cfg.pos&(512-1));
+      cfg.pos	&= ~(512ull-1);
+    }
   dowrite	= 0;
   fn		= 0;
   if (!strcmp(cfg.mode, mode_dump))

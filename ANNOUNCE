@@ -1,3 +1,8 @@
-Looking at the sources I already found the first bug.
+Removed minor bugs.
 
-Wasn't that quick?
+There was a bug when reading devices without option -async present.
+Newer kernels apparently do not allow to do that.  The workaround was
+to add the -async option.  This is now automatically applied.
+
+Also if the start value was not a multiple of the sector size strange
+things happened.  The start value now is rounded.

@@ -1,3 +1,9 @@
+2007-10-05  Valentin Hilbig  <tino@firebird.03.softkill.net>
+
+	* diskus.c (create_sector): Length calculation was with an offset
+	of 1.  This never placed the id on the last byte of a sector.  Not
+	harmful, but not clean ;)
+
 2007-09-18    <tino@firebird.03.softkill.net>
 
 	* diskus.c (check_worker): bug removed
