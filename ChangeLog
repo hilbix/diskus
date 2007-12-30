@@ -2,6 +2,7 @@
 
 	* diskus.c (dump_worker): forgot an unsigned, so on negative
 	characters repeated sequences were not detected.
+	(dump_worker, check_worker, main): Option -expand
 
 2007-10-05  Valentin Hilbig  <tino@firebird.03.softkill.net>
 

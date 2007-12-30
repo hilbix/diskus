@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.7  2007-12-30 15:53:14  tino
+ * Option -expand
+ *
  * Revision 1.6  2007-12-30 03:05:56  tino
  * Bugfix for -dump
  *
@@ -34,9 +37,6 @@
  *
  * Revision 1.2  2007/09/18 03:08:53  tino
  * Forgot the Copyright.
- *
- * Revision 1.1  2007/09/18 03:05:46  tino
- * First version
  */
 
 #include "tino/alarm.h"
@@ -62,6 +62,7 @@ struct diskus_cfg
     int		signpos;
     int		err, errtype;
     int		idpos;
+    int		expand;
     long long	ts;
   };
 
@@ -72,7 +73,7 @@ print_state(void *user, long delta, time_t now, long runtime)
 {
   struct diskus_cfg	*cfg=user;
 
-  fprintf(stderr, "%ld:%02d %s %lld %lldMB %d\r", runtime/60, (int)(runtime%60), cfg->mode, cfg->nr, cfg->pos>>20, cfg->err);
+  fprintf(stderr, "%ld:%02d %s %lld %lldMB %d \r", runtime/60, (int)(runtime%60), cfg->mode, cfg->nr, cfg->pos>>20, cfg->err);
   fflush(stderr);
   return 0;
 }
@@ -131,7 +132,7 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
       if (++fill<16)
 	continue;
 
-      if (unchanged==0)
+      if (unchanged==0 || cfg->expand)
 	{
 	  unchanged	= 1;
 	  dump_flush(cfg, buf, fill);
@@ -192,6 +193,8 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       char	*end;
       long long	cmp, ts;
 
+      if (cfg->expand)
+	cfg->errtype	= 0;
       if ((off=find_signature(cfg, ptr))<0)
 	{
 	  if (cfg->errtype!=1)
@@ -389,8 +392,14 @@ main(int argc, char **argv)
 		      TINO_GETOPT_SUFFIX
 		      TINO_GETOPT_MIN
 		      TINO_GETOPT_MAX
+#if 0
+		      TINO_GETOPT_MIN_PTR
+#endif
 		      "bs N	Blocksize to operate on\n"
 		      "		Must be a multiple of the sector size (512 or 4096)"
+#if 0
+		      , &cfg.vary	/* min_ptr	*/
+#endif
 		      , &cfg.bs,
 		      102400,
 		      512,
@@ -407,6 +416,11 @@ main(int argc, char **argv)
 		      "dump	'dump' mode, to hexdump of output (default)"
 		      , &cfg.mode,
 		      mode_dump,
+
+		      TINO_GETOPT_FLAG
+		      "expand	Do not compress output, always print everything\n"
+		      "		for -check and -dump"
+		      , &cfg.expand,
 
 		      TINO_GETOPT_STRINGFLAGS
 		      TINO_GETOPT_MIN
@@ -462,7 +476,18 @@ main(int argc, char **argv)
 		      "start N	start position (must be a multiple of 512)\n"
 		      "		You can add a BKMGT suffix for Byte KB MB .."
 		      , &cfg.pos,
-
+#if 0
+		      TINO_GETOPT_INT
+		      TINO_GETOPT_SUFFIX
+		      TINO_GETOPT_MIN
+		      TINO_GETOPT_MAX_PTR
+		      "vary N	Vary blocksize from this value to the one given above\n"
+		      "		Must be a multiple of the sector size (512 or 4096)"
+		      , &cfg.bs	/* max_ptr	*/
+		      , &cfg.vary,
+		      0,
+#endif
+	      
 		      TINO_GETOPT_FLAG
 		      "write	write mode, destroy data (mode 'gen' needs this)"
 		      , &writemode,
