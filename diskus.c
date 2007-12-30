@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.6  2007-12-30 03:05:56  tino
+ * Bugfix for -dump
+ *
  * Revision 1.5  2007-12-10 03:01:43  tino
  * dist
  *
@@ -104,7 +107,7 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
   cfg->nr++;
   for (i=0; i<len; )
     {
-      char	c;
+      register unsigned char	c;
 
       if (unchanged==2 && fill==0)
 	{
