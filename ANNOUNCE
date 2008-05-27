@@ -1,3 +1,5 @@
-New option -expand
+Better reporting and return value,
+Option -quiet to suppress progress status
 
-Because I needed it
+Diskus previously was not very detailed in the output,
+it now prints more information if -quiet is not present.

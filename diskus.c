@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.9  2008-05-27 17:33:41  tino
+ * Option quiet activated
+ *
  * Revision 1.8  2008-05-27 16:44:20  tino
  * Next dist
  *
@@ -417,7 +420,8 @@ run_it(CFG, diskus_run_fn *run, const char *name, worker_fn worker)
   ret	= run(cfg, name, worker);
   if (ret || cfg->err)
     {
-      printf("failed mode %s sector %lld pos=%lldMB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1), cfg->err, ret);
+      if (!cfg->quiet)
+        printf("failed mode %s sector %lld pos=%lldMB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1), cfg->err, ret);
     }
   else if (!cfg->quiet)
     printf("success mode %s sector %lld pos=%lldMB+%lld\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1));
@@ -529,12 +533,12 @@ main(int argc, char **argv)
 		      "		The pattern is defined with the option -out"
 		      , &cfg.mode,
 		      mode_pattern,
-
+#endif
 		      TINO_GETOPT_FLAG
 		      "quiet	quiet mode, print no progress meter and no result.\n"
 		      "		Success only is signalled in the return status"
 		      , &cfg.quiet,
-#endif
+
 		      TINO_GETOPT_STRINGFLAGS
 		      TINO_GETOPT_MIN
 		      "read	'read' mode, just read data, do not output anything"
