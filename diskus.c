@@ -2,7 +2,7 @@
  *
  * Disk geometry checking utility
  *
- * Copyright (C)2007 Valentin Hilbig <webmaster@scylla-charybdis.com>
+ * Copyright (C)2007-2008 Valentin Hilbig <webmaster@scylla-charybdis.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.8  2008-05-27 16:44:20  tino
+ * Next dist
+ *
  * Revision 1.7  2007-12-30 15:53:14  tino
  * Option -expand
  *
@@ -51,6 +54,22 @@
 
 #include "diskus_version.h"
 
+#define	SECTOR_SIZE		512
+#define	MAX_SECTOR_SIZE		SECTOR_SIZE
+#define	DISKUS_MAGIC_SIZE	27
+
+/* This is a bitmask	*/
+enum
+  {
+    diskus_ret_ok	= 0,	/* Success	*/
+    diskus_ret_param	= 1,	/* Parameter error like wrong file (permission denied)	*/
+    diskus_ret_seek	= 2,	/* Seek error	*/
+    diskus_ret_read	= 4,	/* Read error	*/
+    diskus_ret_write	= 8,	/* Write error	*/
+    diskus_ret_diff	= 16,	/* Structure error (Sector X pretends to be Sector Y)	*/
+    diskus_ret_short	= 32,	/* Short read	*/
+    diskus_ret_old	= 64,	/* Checksum timestamp jumps	*/
+  };
 static const char	mode_dump[]="dump", mode_gen[]="gen", mode_check[]="check", mode_null[]="null", mode_read[]="read";
 
 struct diskus_cfg
@@ -63,6 +82,8 @@ struct diskus_cfg
     int		err, errtype;
     int		idpos;
     int		expand;
+    int		quiet;
+    int		retflags;
     long long	ts;
   };
 
@@ -73,15 +94,19 @@ print_state(void *user, long delta, time_t now, long runtime)
 {
   struct diskus_cfg	*cfg=user;
 
+  if (cfg->quiet)
+    return cfg->quiet==1 ? 0 : 1;
+
   fprintf(stderr, "%ld:%02d %s %lld %lldMB %d \r", runtime/60, (int)(runtime%60), cfg->mode, cfg->nr, cfg->pos>>20, cfg->err);
   fflush(stderr);
+
   return 0;
 }
 
 static void
 read_worker(CFG, unsigned char *ptr, size_t len)
 {
-  cfg->nr++;
+  cfg->nr	+= len/SECTOR_SIZE;
   cfg->pos	+= len;
 }
 
@@ -102,10 +127,11 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
   if (!ptr)
     {
       dump_flush(cfg, buf, fill);
+      tino_xd(cfg->stdout, "", -10, cfg->pos, NULL, 0);
       fill	= 0;
       return;
     }
-  cfg->nr++;
+  cfg->nr	+= len/SECTOR_SIZE;
   for (i=0; i<len; )
     {
       register unsigned char	c;
@@ -152,14 +178,14 @@ create_sector(long long nr, unsigned char *ptr, char *id, int len)
   int	i;
 
   tino_md5_bin(id, len, ptr);
-  for (i=16; i<512; i+=16)
+  for (i=16; i<SECTOR_SIZE; i+=16)
     memcpy(ptr+i, ptr, 16);
-  for (i=256; --i>=0; )
+  for (i=SECTOR_SIZE/2; --i>=0; )
     {
       ptr[i]	^= i;
       ptr[511-i]	^= i;
     }
-  memcpy(ptr+(nr%(512-len+1)), id, len);
+  memcpy(ptr+(nr%(SECTOR_SIZE-len+1)), id, len);
 }
 
 static int
@@ -168,12 +194,12 @@ find_signature(CFG, const unsigned char *ptr)
   int	i, j;
 
   j	= cfg->signpos;
-  for (i=512-27; --i>=0; )
+  for (i=SECTOR_SIZE-DISKUS_MAGIC_SIZE; --i>=0; )
     {
       if (!memcmp(ptr+j, "[DISKUS ", 8))
 	return j;
       j++;
-      j	%= 512-27;
+      j	%= SECTOR_SIZE-DISKUS_MAGIC_SIZE;
     }
   return -1;
 }
@@ -182,12 +208,12 @@ static void
 check_worker(CFG, unsigned char *ptr, size_t len)
 {
   int		i;
-  unsigned char	sect[512];
+  unsigned char	sect[MAX_SECTOR_SIZE];
 
   if (!ptr)
     return;
 
-  for (i=0; i<len; i+=512, ptr+=512, cfg->nr++)
+  for (i=0; i<len; i+=SECTOR_SIZE, ptr+=SECTOR_SIZE, cfg->nr++)
     {
       int	off;
       char	*end;
@@ -199,6 +225,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	{
 	  if (cfg->errtype!=1)
 	    printf("cannot find signature in sector %lld\n", cfg->nr);
+	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 1;
 	  cfg->err++;
 	  continue;
@@ -209,6 +236,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	{
 	  if (cfg->errtype!=2)
 	    printf("invalid signature(1) in sector %lld\n", cfg->nr);
+	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 2;
 	  cfg->err++;
 	  continue;
@@ -217,27 +245,33 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 	{
 	  if (cfg->errtype!=3)
 	    printf("signature number mismatch (%lld) in sector %lld\n", cmp, cfg->nr);
+	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 3;
 	  cfg->err++;
 	  continue;
 	}
       ts	= strtoll(end+1, &end, 10);
       if (ts!=cfg->ts && cfg->ts)
-	printf("timestamp jumped from %lld to %lld\n", cfg->ts, ts);
+	{
+	  printf("timestamp jumped from %lld to %lld\n", cfg->ts, ts);
+	  cfg->retflags	|= diskus_ret_old;
+	}
       cfg->ts	= ts;
       if (!end || *end!=']')
 	{
 	  if (cfg->errtype!=4)
 	    printf("invalid signature(2) in sector %lld\n", cfg->nr);
+	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 4;
 	  cfg->err++;
 	  continue;
 	}
       create_sector(cfg->nr, sect, (char *)(ptr+off), (end-(char *)ptr)-off+1);
-      if (memcmp(ptr, sect, 512))
+      if (memcmp(ptr, sect, SECTOR_SIZE))
 	{
 	  if (cfg->errtype!=5)
 	    printf("data mismatch in sector %lld\n", cfg->nr);
+	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 5;
 	  cfg->err++;
 	  continue;
@@ -255,7 +289,7 @@ gen_worker(CFG, unsigned char *ptr, size_t len)
   if (!ptr)
     return;
 
-  for (i=0; i<len; i+=512, ptr+=512)
+  for (i=0; i<len; i+=SECTOR_SIZE, ptr+=SECTOR_SIZE)
     {
       snprintf(id, sizeof id, "[DISKUS %016llx %lld]", cfg->nr, (long long)cfg->ts);
       create_sector(cfg->nr, ptr, id, strlen(id));
@@ -290,11 +324,11 @@ run_read(CFG, const char *name, worker_fn worker)
   int		fd, got;
   void		*block;
 
-  block		= tino_alloc(cfg->bs);
+  block		= tino_allocO(cfg->bs);
   if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? 0 : O_DIRECT)))<0)
     {
       tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
-      return 1;
+      return diskus_ret_param;
     }
   if (tino_file_read_allE(fd, block, cfg->bs)<0)
     {
@@ -302,26 +336,32 @@ run_read(CFG, const char *name, worker_fn worker)
       if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? O_DIRECT : 0)))<0)
 	{
 	  tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
-	  return 1;
+	  return diskus_ret_param;
 	}
-      fprintf(stderr, "WTTDU108W (opened with reverse option -async)\n");
+      if (!cfg->quiet)
+	fprintf(stderr, "WTTDU108W (opened with reverse option -async)\n");
     }
-  cfg->nr	= cfg->pos/512ull;
+  cfg->nr	= cfg->pos/(unsigned long long)SECTOR_SIZE;
   if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
     {
       tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
-      return 2;
+      return diskus_ret_seek;
     }
   worker(cfg, NULL, 0);
   while ((got=tino_file_read_allE(fd, block, cfg->bs))>0)
     {
+      if (got%SECTOR_SIZE)
+	{
+	  tino_err(TINO_ERR(ETTDU109E,%s)" (partial sector read: %d pos=%lld (%lld+%d))", name, got%SECTOR_SIZE, cfg->pos+got, cfg->pos, got);
+	  return diskus_ret_short;
+	}
       worker(cfg, block, got);
       TINO_ALARM_RUN();
     }
   if (got<0 || tino_file_closeE(fd))
     {
       tino_err(TINO_ERR(ETTDU101E,%s)" (read error at sector %lld pos=%lldMB)", name, cfg->nr, cfg->pos>>20);
-      return 1;
+      return diskus_ret_read;
     }
   worker(cfg, NULL, 0);
   return 0;
@@ -337,39 +377,60 @@ run_write(CFG, const char *name, worker_fn worker)
   if ((fd=tino_file_openE(name, O_WRONLY|(cfg->async ? 0 : O_SYNC)))<0)
     {
       tino_err(TINO_ERR(ETTDU104E,%s)" (cannot open for write)", name);
-      return 1;
+      return diskus_ret_param;
     }
   cfg->nr	= 0;
   if (cfg->pos)
     {
-      cfg->nr	= cfg->pos/512;
+      cfg->nr	= cfg->pos/SECTOR_SIZE;
       if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
 	{
 	  tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
-	  return 2;
+	  return diskus_ret_seek;
 	}
     }
-  block		= tino_alloc(cfg->bs);
+  block		= tino_allocO(cfg->bs);
   worker(cfg, NULL, 0);
   do
     {
       worker(cfg, block, cfg->bs);
       TINO_ALARM_RUN();
     } while ((put=tino_file_write_allE(fd, block, cfg->bs))==cfg->bs);
+  
+  if (errno==ENOSPC)
+    errno	= 0;
   if (errno || tino_file_closeE(fd))
     {
       tino_err(TINO_ERR(ETTDU105E,%s)" (write error at sector %lld pos=%lldMB)", name, cfg->nr, cfg->pos>>20);
-      return 1;
+      return diskus_ret_write;
     }
-  return 0;
+  return diskus_ret_ok;
+}
+
+typedef int diskus_run_fn(CFG, const char *name, worker_fn worker);
+
+static int
+run_it(CFG, diskus_run_fn *run, const char *name, worker_fn worker)
+{
+  int	ret;
+
+  ret	= run(cfg, name, worker);
+  if (ret || cfg->err)
+    {
+      printf("failed mode %s sector %lld pos=%lldMB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1), cfg->err, ret);
+    }
+  else if (!cfg->quiet)
+    printf("success mode %s sector %lld pos=%lldMB+%lld\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1));
+  return cfg->retflags|ret;
 }
 
 int
 main(int argc, char **argv)
 {
   static struct diskus_cfg	cfg;
-  int		argn, writemode, dowrite;
+  int		argn, writemode;
   worker_fn	*fn;
+  diskus_run_fn	*run;
 
   argn	= tino_getopt(argc, argv, 1, 1,
 		      TINO_GETOPT_VERSION(DISKUS_VERSION)
@@ -402,7 +463,7 @@ main(int argc, char **argv)
 #endif
 		      , &cfg.bs,
 		      102400,
-		      512,
+		      SECTOR_SIZE,
 		      16*1024*1024,
 
 		      TINO_GETOPT_STRINGFLAGS
@@ -439,6 +500,10 @@ main(int argc, char **argv)
 		      , &cfg.idpos,
 		      -1,
 		      4096-36+1,
+
+		      TINO_GETOPT_STRING
+		      "log file	Output full log to file"
+		      , &cfg.logfile,
 #endif
 		      TINO_GETOPT_STRING
 		      TINO_GETOPT_DEFAULT
@@ -464,6 +529,11 @@ main(int argc, char **argv)
 		      "		The pattern is defined with the option -out"
 		      , &cfg.mode,
 		      mode_pattern,
+
+		      TINO_GETOPT_FLAG
+		      "quiet	quiet mode, print no progress meter and no result.\n"
+		      "		Success only is signalled in the return status"
+		      , &cfg.quiet,
 #endif
 		      TINO_GETOPT_STRINGFLAGS
 		      TINO_GETOPT_MIN
@@ -473,8 +543,8 @@ main(int argc, char **argv)
 
 		      TINO_GETOPT_LLONG
 		      TINO_GETOPT_SUFFIX
-		      "start N	start position (must be a multiple of 512)\n"
-		      "		You can add a BKMGT suffix for Byte KB MB .."
+		      "start N	start position, add suffix BKMGT for Byte, KB, MB ..\n"
+		      "		Must be a multiple of the sector size (512 or 4096)"
 		      , &cfg.pos,
 #if 0
 		      TINO_GETOPT_INT
@@ -495,14 +565,17 @@ main(int argc, char **argv)
 		      NULL
 		      );
   if (argn<=0)
-    return 1;
+    return diskus_ret_param;
 
-  if (cfg.pos&(512-1))
+  if (cfg.pos&(SECTOR_SIZE-1))
     {
-      fprintf(stderr, "WTTDU107W %lld (rounded down start value)\n", cfg.pos&(512-1));
-      cfg.pos	&= ~(512ull-1);
+      if (cfg.quiet)
+	tino_err(TINO_ERR(ETTDU107W,%lld)" (start value not multiple of sector size)", cfg.pos&(SECTOR_SIZE-1));
+      else
+	fprintf(stderr, "WTTDU107W %lld (rounded down start value)\n", cfg.pos&(SECTOR_SIZE-1));
+      cfg.pos	&= ~(unsigned long long)(SECTOR_SIZE-1);
     }
-  dowrite	= 0;
+  run		= run_read;
   fn		= 0;
   if (!strcmp(cfg.mode, mode_dump))
     fn	= dump_worker;
@@ -512,19 +585,19 @@ main(int argc, char **argv)
     fn	= read_worker;
   else if (!strcmp(cfg.mode, mode_gen))
     {
-      dowrite	= 1;
       fn	= gen_worker;
+      run	= run_write;
     }
   else if (!strcmp(cfg.mode, mode_null))
     {
-      dowrite	= 1;
       fn	= null_worker;
+      run	= run_write;
     }
 
   if (!fn)
     {
       tino_err(TINO_ERR(ETTDU102F,%s)" (unknown mode)", cfg.mode);
-      return 1;
+      return diskus_ret_param;
     }
 
 #if 0
@@ -534,17 +607,10 @@ main(int argc, char **argv)
 #endif
   tino_alarm_set(1, print_state, &cfg);
 
-  if (dowrite)
+  if (!writemode && run!=run_read)
     {
-      if (!writemode)
-	{
-	  tino_err(TINO_ERR(ETTDU103F,%s)" (mode needs write option)", cfg.mode);
-	  return 1;
-	}
-      run_write(&cfg, argv[argn], fn);
+      tino_err(TINO_ERR(ETTDU103F,%s)" (mode needs write option)", cfg.mode);
+      return diskus_ret_param;
     }
-  else if (run_read(&cfg, argv[argn], fn))
-    return 1;
-
-  return 0;
+  return run_it(&cfg, run, argv[argn], fn);
 }

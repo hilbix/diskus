@@ -1,3 +1,11 @@
+2008-05-27  Valentin Hilbig  <tino@firebird.03.softkill.net>
+
+	* diskus.c (dump_worker): print final byte count
+
+2008-01-18  Valentin Hilbig  <tino@firebird.03.softkill.net>
+
+	* diskus.c (main): return values made better diagnostics now
+
 2007-12-30  Valentin Hilbig  <tino@firebird.03.softkill.net>
 
 	* diskus.c (dump_worker): forgot an unsigned, so on negative
