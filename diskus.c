@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.10  2008-05-27 17:58:03  tino
+ * More output fixes
+ *
  * Revision 1.9  2008-05-27 17:33:41  tino
  * Option quiet activated
  *
@@ -130,8 +133,10 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
   if (!ptr)
     {
       dump_flush(cfg, buf, fill);
-      tino_xd(cfg->stdout, "", -10, cfg->pos, NULL, 0);
+      if (!len)
+        tino_xd(cfg->stdout, "", -10, cfg->pos, NULL, 0);
       fill	= 0;
+      unchanged	= 0;
       return;
     }
   cfg->nr	+= len/SECTOR_SIZE;
@@ -170,7 +175,7 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
 	}
       fill	= 0;
       if (unchanged==1)
-	printf("*\n");
+	tino_data_printfA(cfg->stdout, "*\n");
       unchanged	= 2;
     }
 }
@@ -227,7 +232,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if ((off=find_signature(cfg, ptr))<0)
 	{
 	  if (cfg->errtype!=1)
-	    printf("cannot find signature in sector %lld\n", cfg->nr);
+	    tino_data_printfA(cfg->stdout, "cannot find signature in sector %lld\n", cfg->nr);
 	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 1;
 	  cfg->err++;
@@ -238,7 +243,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if (!end || *end!=' ')
 	{
 	  if (cfg->errtype!=2)
-	    printf("invalid signature(1) in sector %lld\n", cfg->nr);
+	    tino_data_printfA(cfg->stdout, "invalid signature(1) in sector %lld\n", cfg->nr);
 	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 2;
 	  cfg->err++;
@@ -247,7 +252,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if (cmp!=cfg->nr)
 	{
 	  if (cfg->errtype!=3)
-	    printf("signature number mismatch (%lld) in sector %lld\n", cmp, cfg->nr);
+	    tino_data_printfA(cfg->stdout, "signature number mismatch (%lld) in sector %lld\n", cmp, cfg->nr);
 	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 3;
 	  cfg->err++;
@@ -256,14 +261,14 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       ts	= strtoll(end+1, &end, 10);
       if (ts!=cfg->ts && cfg->ts)
 	{
-	  printf("timestamp jumped from %lld to %lld\n", cfg->ts, ts);
+	  tino_data_printfA(cfg->stdout, "timestamp jumped from %lld to %lld\n", cfg->ts, ts);
 	  cfg->retflags	|= diskus_ret_old;
 	}
       cfg->ts	= ts;
       if (!end || *end!=']')
 	{
 	  if (cfg->errtype!=4)
-	    printf("invalid signature(2) in sector %lld\n", cfg->nr);
+	    tino_data_printfA(cfg->stdout, "invalid signature(2) in sector %lld\n", cfg->nr);
 	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 4;
 	  cfg->err++;
@@ -273,7 +278,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if (memcmp(ptr, sect, SECTOR_SIZE))
 	{
 	  if (cfg->errtype!=5)
-	    printf("data mismatch in sector %lld\n", cfg->nr);
+	    tino_data_printfA(cfg->stdout, "data mismatch in sector %lld\n", cfg->nr);
 	  cfg->retflags	|= diskus_ret_diff;
 	  cfg->errtype	= 5;
 	  cfg->err++;
@@ -350,7 +355,7 @@ run_read(CFG, const char *name, worker_fn worker)
       tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
       return diskus_ret_seek;
     }
-  worker(cfg, NULL, 0);
+  worker(cfg, NULL, 1);
   while ((got=tino_file_read_allE(fd, block, cfg->bs))>0)
     {
       if (got%SECTOR_SIZE)
@@ -421,10 +426,10 @@ run_it(CFG, diskus_run_fn *run, const char *name, worker_fn worker)
   if (ret || cfg->err)
     {
       if (!cfg->quiet)
-        printf("failed mode %s sector %lld pos=%lldMB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1), cfg->err, ret);
+        tino_data_printfA(cfg->stdout, "failed mode %s sector %lld pos=%lldMB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1), cfg->err, ret);
     }
   else if (!cfg->quiet)
-    printf("success mode %s sector %lld pos=%lldMB+%lld\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1));
+    tino_data_printfA(cfg->stdout, "success mode %s sector %lld pos=%lldMB+%lld\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1));
   return cfg->retflags|ret;
 }
 

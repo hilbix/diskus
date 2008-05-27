@@ -1,5 +1,8 @@
-Better reporting and return value,
+Bugfix release, better reporting and return value,
 Option -quiet to suppress progress status
 
 Diskus previously was not very detailed in the output,
 it now prints more information if -quiet is not present.
+
+The "dump" function 0.2.x did no more work correctly if option -expand
+was not present, this is fixed now.
