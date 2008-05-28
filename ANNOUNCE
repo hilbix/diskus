@@ -1,8 +1,8 @@
-Bugfix release, better reporting and return value,
-Option -quiet to suppress progress status
+Reporting corrected
 
-Diskus previously was not very detailed in the output,
-it now prints more information if -quiet is not present.
+The result printed with -gen mode differed from that with -check mode,
+which was really puzzling.  Now both shall show the same counts.
 
-The "dump" function 0.2.x did no more work correctly if option -expand
-was not present, this is fixed now.
+(Previously the read-loop showed the correct count, while the
+write-loop showed the count which would be reached if not EOF
+interfered, which was too high.)

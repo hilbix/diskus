@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.11  2008-05-28 10:44:15  tino
+ * write mode showed a too high count on EOF
+ *
  * Revision 1.10  2008-05-27 17:58:03  tino
  * More output fixes
  *
@@ -405,8 +408,22 @@ run_write(CFG, const char *name, worker_fn worker)
       TINO_ALARM_RUN();
     } while ((put=tino_file_write_allE(fd, block, cfg->bs))==cfg->bs);
   
-  if (errno==ENOSPC)
-    errno	= 0;
+  if (put>=0 && errno==ENOSPC)
+    {
+      int	over;
+
+      /* correct the counts as EOF usually has a short write
+       */
+      over	= cfg->bs - put;
+      if (over%SECTOR_SIZE)
+	{
+	  tino_err(TINO_ERR(ETTDU109E,%s)" (partial sector written: %d pos=%lld (%lld+%d))", name, put%SECTOR_SIZE, cfg->pos-over, cfg->pos-cfg->bs, put);
+	  return diskus_ret_short;
+	}
+      cfg->pos	-= over;
+      cfg->nr	-= over/SECTOR_SIZE;
+      errno	= 0;
+    }
   if (errno || tino_file_closeE(fd))
     {
       tino_err(TINO_ERR(ETTDU105E,%s)" (write error at sector %lld pos=%lldMB)", name, cfg->nr, cfg->pos>>20);
