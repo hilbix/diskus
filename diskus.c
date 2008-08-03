@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.12  2008-08-03 16:58:54  tino
+ * Added error if -write is not needed
+ *
  * Revision 1.11  2008-05-28 10:44:15  tino
  * write mode showed a too high count on EOF
  *
@@ -636,6 +639,11 @@ main(int argc, char **argv)
   if (!writemode && run!=run_read)
     {
       tino_err(TINO_ERR(ETTDU103F,%s)" (mode needs write option)", cfg.mode);
+      return diskus_ret_param;
+    }
+  else if (writemode && run==run_read)
+    {
+      tino_err(TINO_ERR(ETTDU110F,%s)" (mode must not have write option)", cfg.mode);
       return diskus_ret_param;
     }
   return run_it(&cfg, run, argv[argn], fn);

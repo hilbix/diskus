@@ -1,3 +1,7 @@
+2008-08-03  Valentin Hilbig  <tino@zoo.03.softkill.net>
+
+	* diskus.c (main): added ETTDU110F if -write given to non-write mode
+
 2008-05-28  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* diskus.c (run_write): Counts corrected

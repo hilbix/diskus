@@ -1,8 +1,3 @@
-Reporting corrected
+-write mode now no more valid for read modes
 
-The result printed with -gen mode differed from that with -check mode,
-which was really puzzling.  Now both shall show the same counts.
-
-(Previously the read-loop showed the correct count, while the
-write-loop showed the count which would be reached if not EOF
-interfered, which was too high.)
+I always mix this myself, so added a fatal error for this.
