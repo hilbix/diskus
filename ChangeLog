@@ -1,3 +1,9 @@
+2008-09-28  Valentin Hilbig  <tino@zoo.03.softkill.net>
+
+	* diskus.c (getblock): added
+	(run_read, run_write): now uses getblock to get aligned working
+	buffer
+
 2008-08-03  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* diskus.c (main): added ETTDU110F if -write given to non-write mode

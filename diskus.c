@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.13  2008-09-27 23:19:56  tino
+ * Page aligned buffer gets rid of need for option -async
+ *
  * Revision 1.12  2008-08-03 16:58:54  tino
  * Added error if -write is not needed
  *
@@ -113,6 +116,22 @@ print_state(void *user, long delta, time_t now, long runtime)
   fflush(stderr);
 
   return 0;
+}
+
+static void *
+getblock(CFG)
+{
+  void	*ptr;
+  int	err;
+
+  err	= posix_memalign(&ptr, (size_t)4096, cfg->bs);
+  if (err)
+    {
+      errno	= err;
+      tino_err(TINO_ERR(ETTDU110E,%ulld)" (cannot allocate)", (unsigned long long)cfg->bs);
+      exit(diskus_ret_param);
+    }
+  return ptr;
 }
 
 static void
@@ -338,12 +357,12 @@ run_read(CFG, const char *name, worker_fn worker)
   int		fd, got;
   void		*block;
 
-  block		= tino_allocO(cfg->bs);
   if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? 0 : O_DIRECT)))<0)
     {
       tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
       return diskus_ret_param;
     }
+  block		= getblock(cfg);
   if (tino_file_read_allE(fd, block, cfg->bs)<0)
     {
       tino_file_closeE(fd);
@@ -403,7 +422,7 @@ run_write(CFG, const char *name, worker_fn worker)
 	  return diskus_ret_seek;
 	}
     }
-  block		= tino_allocO(cfg->bs);
+  block		= getblock(cfg);
   worker(cfg, NULL, 0);
   do
     {
@@ -529,7 +548,8 @@ main(int argc, char **argv)
 		      , &cfg.idpos,
 		      -1,
 		      4096-36+1,
-
+#endif
+#if 0
 		      TINO_GETOPT_STRING
 		      "log file	Output full log to file"
 		      , &cfg.logfile,
@@ -575,6 +595,11 @@ main(int argc, char **argv)
 		      "start N	start position, add suffix BKMGT for Byte, KB, MB ..\n"
 		      "		Must be a multiple of the sector size (512 or 4096)"
 		      , &cfg.pos,
+#if 0
+		      TINO_GETOPT_STRING
+		      "time fil	Output timing information to file"
+		      , &cfg.timefile,
+#endif
 #if 0
 		      TINO_GETOPT_INT
 		      TINO_GETOPT_SUFFIX

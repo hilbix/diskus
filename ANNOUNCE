@@ -1,3 +1,3 @@
--write mode now no more valid for read modes
-
-I always mix this myself, so added a fatal error for this.
+IO buffer now is aligned to a page boundary,
+such that the -async option is no more needed
+in most times.
