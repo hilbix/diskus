@@ -1,3 +1,1 @@
-IO buffer now is aligned to a page boundary,
-such that the -async option is no more needed
-in most times.
+More suffixes: SC and PEZY
