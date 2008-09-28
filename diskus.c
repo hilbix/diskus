@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.14  2008-09-28 12:31:46  tino
+ * List possible suffixes in help
+ *
  * Revision 1.13  2008-09-27 23:19:56  tino
  * Page aligned buffer gets rid of need for option -async
  *
@@ -490,6 +493,7 @@ main(int argc, char **argv)
 		      TINO_GETOPT_USAGE
 		      "help	this help"
 		      ,
+		      /*fijkloptuvxyz*/
 
 		      TINO_GETOPT_FLAG
 		      "async	Do not use O_SYNC nor O_DIRECT\n"
@@ -504,7 +508,7 @@ main(int argc, char **argv)
 #if 0
 		      TINO_GETOPT_MIN_PTR
 #endif
-		      "bs N	Blocksize to operate on\n"
+		      "bs N	Blocksize to operate on (suffix hint: BSKCMGTPEZY)\n"
 		      "		Must be a multiple of the sector size (512 or 4096)"
 #if 0
 		      , &cfg.vary	/* min_ptr	*/
@@ -592,8 +596,9 @@ main(int argc, char **argv)
 
 		      TINO_GETOPT_LLONG
 		      TINO_GETOPT_SUFFIX
-		      "start N	start position, add suffix BKMGT for Byte, KB, MB ..\n"
-		      "		Must be a multiple of the sector size (512 or 4096)"
+		      "start N  start position N, suffix BKMGTPEZY for Byte, KB, MB, ..\n"
+		      "		Must be a multiple of the sector size (512 or 4096)\n"
+		      "		Use suffix 'S'ector (512) or 'C'D-Rom (4096)."
 		      , &cfg.pos,
 #if 0
 		      TINO_GETOPT_STRING
