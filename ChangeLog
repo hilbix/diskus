@@ -1,3 +1,10 @@
+2008-09-28  Valentin Hilbig  <tino@firebird.03.softkill.net>
+
+	* diskus.c (diskus_err, diskus_log, diskus_vlog): added
+	(check_worker): now uses diskus_err
+	(main, run_read, backoff): Option -jump
+	(read_worker): bugfix, on init (NULL) do not increment pos
+
 2008-09-28  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* diskus.c (getblock): added

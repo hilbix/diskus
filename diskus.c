@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.16  2008-09-28 17:54:53  tino
+ * Backoff strategy
+ *
  * Revision 1.15  2008-09-28 14:38:12  tino
  * Option -jump
  *
@@ -76,6 +79,7 @@
 #include "diskus_version.h"
 
 #define	SECTOR_SIZE		512
+#define	SKIP_BYTES		4096
 #define	MAX_SECTOR_SIZE		SECTOR_SIZE
 #define	DISKUS_MAGIC_SIZE	27
 
@@ -106,18 +110,20 @@ enum diskus_errtype
 
 struct diskus_cfg
   {
-    int		bs, async;
-    const char	*mode;
-    long long	nr, pos;
-    TINO_DATA	*stdout;
-    int		signpos;
-    int		err, errtype;
-    int		idpos;
-    int		expand;
-    int		quiet;
-    int		jump;
-    int		retflags;
-    long long	ts;
+    int			bs, async;
+    const char		*mode;
+    long long		nr, pos;
+    TINO_DATA		*stdout;
+    int			signpos;
+    int			err, errtype;
+    int			idpos;
+    int			expand;
+    int			quiet;
+    int			retflags;
+    long long		ts;
+    /* Option -jump:	*/
+    int			jump;
+    unsigned long long	nxt, skip;
   };
 
 #define	CFG	struct diskus_cfg *cfg
@@ -155,6 +161,9 @@ getblock(CFG)
 static void
 read_worker(CFG, unsigned char *ptr, size_t len)
 {
+  if (!ptr)
+    return;
+
   cfg->nr	+= len/SECTOR_SIZE;
   cfg->pos	+= len;
 }
@@ -261,6 +270,7 @@ diskus_vlog(CFG, TINO_VA_LIST list)
   tino_data_printfA(cfg->stdout, "sector %llu: ", cfg->nr);
   tino_data_vsprintfA(cfg->stdout, list);
   tino_data_printfA(cfg->stdout, "\n");
+  tino_data_syncA(cfg->stdout, 0);
 }
 
 static void
@@ -278,16 +288,18 @@ diskus_err(CFG, enum diskus_errtype err, int retflag, const char *text, ...)
 {
   tino_va_list	list;
 
-  cfg->retflags	|= retflag;
+  xDP(("(%p, %d, %d, %s, ..)", cfg, err, retflag, text));
+
+  if (cfg->errtype!=err || cfg->expand)
+    {
+      tino_va_start(list, text);
+      diskus_vlog(cfg, &list);
+      tino_va_end(list);
+    }
+
   cfg->errtype	=  err;
+  cfg->retflags	|= retflag;
   cfg->err++;
-
-  if (cfg->errtype==err && !cfg->expand)
-    return;
-
-  tino_va_start(list, text);
-  diskus_vlog(cfg, &list);
-  tino_va_end(list);
 }
 
 static void
@@ -382,20 +394,59 @@ null_worker(CFG, unsigned char *ptr, size_t len)
   cfg->pos	+= len;
 }
 
+static int
+backoff(CFG)
+{
+  switch (cfg->jump)
+    {
+    default:
+      return 1;
+
+    case 1:
+      cfg->skip	= SKIP_BYTES;
+      break;
+    case 2:
+      if (cfg->nxt!=cfg->pos)
+	cfg->skip	= 0;
+      cfg->skip	+= SKIP_BYTES;
+      break;
+    case 3:
+      if (cfg->nxt==cfg->pos || !cfg->skip)
+	cfg->skip	+= SKIP_BYTES;
+      break;
+    case 4:
+      if (cfg->nxt!=cfg->pos || !cfg->skip)
+	cfg->skip = SKIP_BYTES/2;
+      cfg->skip	*= 2;
+      break;
+    case 5:
+      if (!cfg->skip)
+	cfg->skip	= SKIP_BYTES/2;
+      if (cfg->nxt==cfg->pos)
+	cfg->skip	*= 2;
+      break;
+    }
+  cfg->nxt	= (cfg->pos+cfg->skip)& ~(unsigned long long)(SKIP_BYTES-1);
+  return 0;
+}
+
 typedef void	worker_fn(CFG, unsigned char *, size_t);
 
 static int
 run_read(CFG, const char *name, worker_fn worker)
 {
-  int		fd, got;
-  void		*block;
+  int	fd, got;
+  void	*block;
+  unsigned long long	nxt;
+
+  nxt	= 0;
 
   if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? 0 : O_DIRECT)))<0)
     {
       tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
       return diskus_ret_param;
     }
-  block		= getblock(cfg);
+  block	= getblock(cfg);
   if (tino_file_read_allE(fd, block, cfg->bs)<0)
     {
       tino_file_closeE(fd);
@@ -410,6 +461,8 @@ run_read(CFG, const char *name, worker_fn worker)
   worker(cfg, NULL, 1);
   for (;;)
     {
+      xDP(("() pos=%llu", cfg->pos));
+
       if (cfg->pos&(SECTOR_SIZE-1))
 	{
 	  tino_err(TINO_ERR(ETTDU112F,%s)" (internal fatal error, pos %lld not multiple of sector size)", name, cfg->pos);
@@ -436,15 +489,14 @@ run_read(CFG, const char *name, worker_fn worker)
       if (!got)
 	break;
 
-      if (!cfg->jump)
+      if (backoff(cfg))
 	{
 	  tino_err(TINO_ERR(ETTDU101E,%s)" (read error at sector %lld pos=%lldMiB)", name, cfg->nr, cfg->pos>>20);
 	  return diskus_ret_read;
 	}
 
-      diskus_err(cfg, ERR_READ, diskus_ret_read, "read error\n", cfg->nr);
-      cfg->pos	+= 4096;
-      cfg->pos	&= ~(unsigned long long)(4095-1);
+      diskus_err(cfg, ERR_READ, diskus_ret_read, "read error, skip %llu to sector %llu", (cfg->nxt-cfg->pos)/SECTOR_SIZE, cfg->nxt/SECTOR_SIZE);
+      cfg->pos	= cfg->nxt;
     }
   if (tino_file_closeE(fd))
     {
@@ -477,7 +529,7 @@ run_write(CFG, const char *name, worker_fn worker)
 	  return diskus_ret_seek;
 	}
     }
-  block		= getblock(cfg);
+  block	= getblock(cfg);
   worker(cfg, NULL, 0);
   do
     {
@@ -606,11 +658,15 @@ main(int argc, char **argv)
 		      4096-36+1,
 #endif
 		      TINO_GETOPT_FLAG
+		      TINO_GETOPT_MAX
 		      "jump	try to jump over IO errors.  VERY EXPERIMENTAL FEATURE!\n"
+		      "		Skips to the next 4096 byte boundary on errors.\n"
+		      "		Use multiply to increase backoff strategy.\n"
 		      "		(Currently only works for read modes.)\n"
-		      "		This skips to the next 4096 byte boundary.\n"
-		      "		Does only work reliably if option -async is not active"
+		      "		To see all errors combine with option -expand.\n"
+		      "		Does not work reliably if option -async is active"
 		      , &cfg.jump,
+		      5,
 #if 0
 		      TINO_GETOPT_STRING
 		      "log file	Output full log to file"
