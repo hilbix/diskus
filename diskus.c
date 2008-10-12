@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.17  2008-10-12 21:05:35  tino
+ * Updated to new library functions
+ *
  * Revision 1.16  2008-09-28 17:54:53  tino
  * Backoff strategy
  *
@@ -140,22 +143,6 @@ print_state(void *user, long delta, time_t now, long runtime)
   fflush(stderr);
 
   return 0;
-}
-
-static void *
-getblock(CFG)
-{
-  void	*ptr;
-  int	err;
-
-  err	= posix_memalign(&ptr, (size_t)4096, cfg->bs);
-  if (err)
-    {
-      errno	= err;
-      tino_err(TINO_ERR(ETTDU110E,%ulld)" (cannot allocate)", (unsigned long long)cfg->bs);
-      exit(diskus_ret_param);
-    }
-  return ptr;
 }
 
 static void
@@ -443,20 +430,20 @@ run_read(CFG, const char *name, worker_fn worker)
 
   if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? 0 : O_DIRECT)))<0)
     {
-      tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
+      TINO_ERR1("ETTDU100A %s: cannot open", name);
       return diskus_ret_param;
     }
-  block	= getblock(cfg);
+  block	= tino_alloc_alignedO(cfg->bs);
   if (tino_file_read_allE(fd, block, cfg->bs)<0)
     {
       tino_file_closeE(fd);
       if ((fd=tino_file_openE(name, O_RDONLY|(cfg->async ? O_DIRECT : 0)))<0)
 	{
-	  tino_err(TINO_ERR(ETTDU100E,%s)" (cannot open)", name);
+	  TINO_ERR1("ETTDU100A %s: cannot open", name);
 	  return diskus_ret_param;
 	}
       if (!cfg->quiet)
-	fprintf(stderr, "WTTDU108W (opened with reverse option -async)\n");
+	TINO_ERR1("WTTDU108 %s: opened with reverse option -async", name);
     }
   worker(cfg, NULL, 1);
   for (;;)
@@ -465,14 +452,14 @@ run_read(CFG, const char *name, worker_fn worker)
 
       if (cfg->pos&(SECTOR_SIZE-1))
 	{
-	  tino_err(TINO_ERR(ETTDU112F,%s)" (internal fatal error, pos %lld not multiple of sector size)", name, cfg->pos);
+	  TINO_ERR2("ETTDU112F %s: internal fatal error, pos %lld not multiple of sector size", name, cfg->pos);
 	  return diskus_ret_param;
 	}
 
       cfg->nr	= cfg->pos/(unsigned long long)SECTOR_SIZE;
       if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
 	{
-	  tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
+	  TINO_ERR2("ETTDU106E %s: cannot seek to %lld", name, cfg->pos);
 	  return diskus_ret_seek;
 	}
 
@@ -480,7 +467,7 @@ run_read(CFG, const char *name, worker_fn worker)
 	{
 	  if (got%SECTOR_SIZE)
 	    {
-	      tino_err(TINO_ERR(ETTDU109E,%s)" (partial sector read: %d pos=%lld (%lld+%d))", name, got%SECTOR_SIZE, cfg->pos+got, cfg->pos, got);
+	      TINO_ERR5("ETTDU109A %s: partial sector read: %d pos=%lld (%lld+%d)", name, got%SECTOR_SIZE, cfg->pos+got, cfg->pos, got);
 	      return diskus_ret_short;
 	    }
 	  worker(cfg, block, got);
@@ -491,7 +478,7 @@ run_read(CFG, const char *name, worker_fn worker)
 
       if (backoff(cfg))
 	{
-	  tino_err(TINO_ERR(ETTDU101E,%s)" (read error at sector %lld pos=%lldMiB)", name, cfg->nr, cfg->pos>>20);
+	  TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%lldMiB", name, cfg->nr, cfg->pos>>20);
 	  return diskus_ret_read;
 	}
 
@@ -500,7 +487,7 @@ run_read(CFG, const char *name, worker_fn worker)
     }
   if (tino_file_closeE(fd))
     {
-      tino_err(TINO_ERR(ETTDU101E,%s)" (read error at sector %lld pos=%lldMiB)", name, cfg->nr, cfg->pos>>20);
+      TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%lldMiB", name, cfg->nr, cfg->pos>>20);
       return diskus_ret_read;
     }
   worker(cfg, NULL, 0);
@@ -516,7 +503,7 @@ run_write(CFG, const char *name, worker_fn worker)
   cfg->ts	= time(NULL);
   if ((fd=tino_file_openE(name, O_WRONLY|(cfg->async ? 0 : O_SYNC)))<0)
     {
-      tino_err(TINO_ERR(ETTDU104E,%s)" (cannot open for write)", name);
+      TINO_ERR1("ETTDU104A %s: cannot open for write", name);
       return diskus_ret_param;
     }
   cfg->nr	= 0;
@@ -525,11 +512,11 @@ run_write(CFG, const char *name, worker_fn worker)
       cfg->nr	= cfg->pos/SECTOR_SIZE;
       if (tino_file_lseekE(fd, cfg->pos, SEEK_SET)!=cfg->pos)
 	{
-	  tino_err(TINO_ERR(ETTDU106E,%s)" (cannot seek to %lld)", name, cfg->pos);
+	  TINO_ERR2("ETTDU106A %s: cannot seek to %lld", name, cfg->pos);
 	  return diskus_ret_seek;
 	}
     }
-  block	= getblock(cfg);
+  block	= tino_alloc_alignedO(cfg->bs);
   worker(cfg, NULL, 0);
   do
     {
@@ -546,7 +533,7 @@ run_write(CFG, const char *name, worker_fn worker)
       over	= cfg->bs - put;
       if (over%SECTOR_SIZE)
 	{
-	  tino_err(TINO_ERR(ETTDU109E,%s)" (partial sector written: %d pos=%lld (%lld+%d))", name, put%SECTOR_SIZE, cfg->pos-over, cfg->pos-cfg->bs, put);
+	  TINO_ERR5("ETTDU109A %s: partial sector written: %d pos=%lld (%lld+%d)", name, put%SECTOR_SIZE, cfg->pos-over, cfg->pos-cfg->bs, put);
 	  return diskus_ret_short;
 	}
       cfg->pos	-= over;
@@ -555,7 +542,7 @@ run_write(CFG, const char *name, worker_fn worker)
     }
   if (errno || tino_file_closeE(fd))
     {
-      tino_err(TINO_ERR(ETTDU105E,%s)" (write error at sector %lld pos=%lldMiB)", name, cfg->nr, cfg->pos>>20);
+      TINO_ERR3("ETTDU105A %s: write error at sector %lld pos=%lldMiB", name, cfg->nr, cfg->pos>>20);
       return diskus_ret_write;
     }
   return diskus_ret_ok;
@@ -743,9 +730,8 @@ main(int argc, char **argv)
   if (cfg.pos&(SECTOR_SIZE-1))
     {
       if (cfg.quiet)
-	tino_err(TINO_ERR(ETTDU107W,%lld)" (start value not multiple of sector size)", cfg.pos&(SECTOR_SIZE-1));
-      else
-	fprintf(stderr, "WTTDU107W %lld (rounded down start value)\n", cfg.pos&(SECTOR_SIZE-1));
+	TINO_ERR2("ETTDU107I start value %lld not multiple of sector size", cfg.pos, cfg.pos&(SECTOR_SIZE-1));
+      TINO_ERR1("WTTDU107 rounded down start value by %lld", cfg.pos&(SECTOR_SIZE-1));
       cfg.pos	&= ~(unsigned long long)(SECTOR_SIZE-1);
     }
   run		= run_read;
@@ -769,7 +755,7 @@ main(int argc, char **argv)
 
   if (!fn)
     {
-      tino_err(TINO_ERR(ETTDU102F,%s)" (unknown mode)", cfg.mode);
+      TINO_ERR1("FTTDU102F unknown mode %s", cfg.mode);
       return diskus_ret_param;
     }
 
@@ -782,12 +768,12 @@ main(int argc, char **argv)
 
   if (!writemode && run!=run_read)
     {
-      tino_err(TINO_ERR(ETTDU103F,%s)" (mode needs write option)", cfg.mode);
+      TINO_ERR1("ETTDU103F %s mode needs write option", cfg.mode);
       return diskus_ret_param;
     }
   else if (writemode && run==run_read)
     {
-      tino_err(TINO_ERR(ETTDU110F,%s)" (mode must not have write option)", cfg.mode);
+      TINO_ERR1("ETTDU110F %s mode must not have write option", cfg.mode);
       return diskus_ret_param;
     }
   return run_it(&cfg, run, argv[argn], fn);

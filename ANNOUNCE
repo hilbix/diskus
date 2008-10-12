@@ -1,7 +1,3 @@
-Option -jump added (because I needed it)
+Error reporting changed to be better readable, some library changes.
 
-This feature is very experimental and only works for read modes currently.
-It tries to jump over errors by skipping to the next 4096 byte boundary.
-It has not been tested thoroughly and if run with the -async option
-(which automatically might kick in in several cases) this will behave
-a little bit unreliably.
+Nearly untested.
