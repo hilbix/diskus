@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.19  2008-12-14 01:26:16  tino
+ * more future
+ *
  * Revision 1.18  2008-12-14 01:09:13  tino
  * New version with -freshen and -to
  *
@@ -723,7 +726,7 @@ main(int argc, char **argv)
 		      TINO_GETOPT_USAGE
 		      "help	this help"
 		      ,
-		      /*xyz*/
+		      /*xy*/
 
 		      TINO_GETOPT_FLAG
 		      "async	Do not use O_SYNC nor O_DIRECT\n"
@@ -887,10 +890,9 @@ main(int argc, char **argv)
 		      , &writemode,
 #if 0
 		      TINO_GETOPT_STRING
-		      "time fil	Output timing information to file"
+		      "zone file  Append timing information to file"
 		      , &cfg.timefile,
 #endif
-
 		      NULL
 		      );
   if (argn<=0)
