@@ -47,7 +47,14 @@ Following command needs the write option and therefor does nothing:
 
 This checks the previous contents written to the drive using -gen:
 
-./diskus -async -bs 1M -check /dev/sdb
+./diskus -bs 1M -check /dev/sdb
+
+This "freshens" (rewrites) sectors 100G to 105G on a drive (this
+usually will have modern drives remap weak sectors).  Note that this,
+again, needs the -write option (which has been left out of the
+commandline for safety purpose):
+
+./diskus -freshen -bs 1M -start 100G -to -5G /dev/sdb
 
 
 Rationale:
@@ -86,9 +93,13 @@ For example, if you put in a 2 GB flash card into your card reader,
 the uppermost bit is not supported and silently discarded, such that
 you overwrite the first GB with the second GB.
 
-DISKUS can detect nearly all these cases.  However it is not a bit
-pattern nor a harddrive stress testing tool.  However without a tool
-like DISKUS it is not easy to diagnose problems like those noted
+- Drives start to become slow.  Extremely slow.  And some strange
+bus reset messages start filling your syslog.  However after rewriting
+the sectors (-freshen option), all this problems suddenly vanish.
+
+DISKUS can help in all these cases.  However it is not a bit pattern
+nor a harddrive stress testing tool.  However without a tool like
+DISKUS it is not easy to diagnose or repair problems like those noted
 above.
 
 I wrote it, because I needed it.  How much I needed it I realized when
@@ -126,6 +137,9 @@ meter text.  In this case use IO redirection and an editor.
 http://www.scylla-charybdis.com/tool.php/diskus
 
 $Log$
+Revision 1.2  2008-12-15 00:58:30  tino
+Prominent note of freshen option
+
 Revision 1.1  2007-12-10 03:01:07  tino
 added
 
