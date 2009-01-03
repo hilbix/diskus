@@ -1,20 +1,37 @@
-Disk geometry checking tool
+Disk geometry checking and repair tool
 # $Header$
 #
 # $Log$
+# Revision 1.2  2009-01-03 15:48:57  tino
+# Output now uses scaling, more reliable read mode
+#
 # Revision 1.1  2007-09-18 03:05:46  tino
 # First version
-#
 
-This program checks the disk geometry by writing sectors with a
-numbered ID to the harddrive.  THIS ERASES ALL DATA ON THE DEVICE!
-Later you can verify if the disk got the data correctly.  DISKUS will
-then detect if sectors are written wrong (to the wrong position or
-with bit errors).
+This program is a high level harddrive diagnostic and limited repair
+tool.
+
+It checks the disk geometry by writing sectors with a numbered ID to
+the harddrive.  (THIS ERASES ALL DATA ON THE DEVICE!)  Later you can
+verify if the sector-IDs on the disk are still correct, thereby
+detecting any case where some data was written to the wrong sector (or
+was not written at all).  One example use is to check if some elder
+SD-card-readers are able to access the second GB - some just overwrite
+the first GB two times, and diskus will detect such a bug.
+
+Now you can "freshen" the data on your harddrive, too, this will read
+and re-write the sectors.  With modern drives this will re-map all
+defective sectors.  (I needed this new function to successfully revive
+one of my drives while keeping all data intact.)  Note that this
+option was not thoroughly tested (it was not yet tested with drives
+with read errors), so if you use this new option, be sure to have a
+backup (or some filesystem like ZFS which is able to fix any left over
+data error).
 
 You can also NUL the drive (like dd if=/dev/zero of=/dev/hdwhatever),
-just checkread it or do a hexdump.
+just checkread it or do a hexdump.  Diskus uses O_DIRECT/O_SYNC to
+lessen memory cache impact and has a little progress meter.
 
-This is no tool to write bit check patterns to the harddrive or erase
-your harddrive according to DOD algorithms.  The difference to dd is,
-that this here uses O_DIRECT/O_SYNC and has a little progress meter.
+Pleae note that diskus is no tool to erase your harddrive according to
+DOD algorithms or write certain bit check patterns or data onto it
+like dd.

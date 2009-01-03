@@ -1,3 +1,11 @@
+2009-01-03  Valentin Hilbig  <tino@zoo.03.softkill.net>
+
+	* diskus.c (run_read_type): changed from read_allE() to readE(),
+	to get besser error response.
+	(run_read_type): Clearing of input buffer added, to protect
+	against some glitch which might forget to fill the buffer with new
+	data.  (However AFAICS it just fills it with old random data.)
+
 2008-09-28  Valentin Hilbig  <tino@firebird.03.softkill.net>
 
 	* diskus.c (diskus_err, diskus_log, diskus_vlog): added

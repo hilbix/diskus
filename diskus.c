@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.20  2009-01-03 15:48:57  tino
+ * Output now uses scaling, more reliable read mode
+ *
  * Revision 1.19  2008-12-14 01:26:16  tino
  * more future
  *
@@ -47,14 +50,8 @@
  * Revision 1.11  2008-05-28 10:44:15  tino
  * write mode showed a too high count on EOF
  *
- * Revision 1.10  2008-05-27 17:58:03  tino
- * More output fixes
- *
  * Revision 1.9  2008-05-27 17:33:41  tino
  * Option quiet activated
- *
- * Revision 1.8  2008-05-27 16:44:20  tino
- * Next dist
  *
  * Revision 1.7  2007-12-30 15:53:14  tino
  * Option -expand
@@ -62,17 +59,8 @@
  * Revision 1.6  2007-12-30 03:05:56  tino
  * Bugfix for -dump
  *
- * Revision 1.5  2007-12-10 03:01:43  tino
- * dist
- *
- * Revision 1.4  2007-09-18 03:24:42  tino
- * Usage made better
- *
  * Revision 1.3  2007/09/18 03:15:09  tino
  * Minor BUG removed.
- *
- * Revision 1.2  2007/09/18 03:08:53  tino
- * Forgot the Copyright.
  */
 
 #include "tino/alarm.h"
@@ -82,7 +70,11 @@
 #include "tino/alloc.h"
 #include "tino/err.h"
 #include "tino/md5.h"
+#include "tino/scale.h"
+#include "tino/str.h"
+#if 0
 #include "tino/repository.h"
+#endif
 
 #include <time.h>
 
@@ -155,10 +147,16 @@ print_state(void *user, long delta, time_t now, long runtime)
   if (cfg->quiet)
     return cfg->quiet==1 ? 0 : 1;
 
-  fprintf(stderr, "%ld:%02d %s %lld %lldMiB %d \r", runtime/60, (int)(runtime%60), cfg->mode, cfg->nr, cfg->pos>>20, cfg->err);
+  fprintf(stderr, "%s %s %10lldS %siB %d \r", tino_scale_interval(1, runtime, 1, -6), cfg->mode, cfg->nr, tino_scale_bytes(2, cfg->pos, 2, -9), cfg->err);
   fflush(stderr);
 
   return 0;
+}
+
+static const char *
+get_pos_str(CFG)
+{
+  return tino_str_ltrim_const(tino_scale_bytes(1, cfg->pos, 2, -9));
 }
 
 /* This requires repositioning like it is done in run_read_type()
@@ -179,15 +177,15 @@ freshen_worker(CFG, unsigned char *ptr, size_t len)
   put	= tino_file_writeI(cfg->fd, ptr, len);
   if (put<0)
     {
-      TINO_ERR3("ETTDU121B %s: rewrite error at sector %lld pos=%lldMiB", cfg->name, cfg->nr, cfg->pos>>20);
+      TINO_ERR3("ETTDU121B %s: rewrite error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
       return -1;
     }
   if (SECTOR_OFFSET(put))
     {
-      TINO_ERR5("ETTDU122A %s: partial sector written: %d pos=%lld (%lld+%d)", cfg->name, SECTOR_OFFSET(put), cfg->pos, cfg->pos-put, put);
+      cfg->nr	+= put/SECTOR_SIZE;
+      TINO_ERR6("ETTDU122A %s: partial sector %lld written: %d pos=%lld (%lld+%d)", cfg->name, cfg->nr, SECTOR_OFFSET(put), cfg->pos, cfg->pos-put, put);
       put	-= SECTOR_OFFSET(put);
       cfg->pos	+= put;
-      cfg->nr	+= put/SECTOR_SIZE;
       return -1;
     }
   if (put!=len && errno!=EINTR)
@@ -538,8 +536,9 @@ run_read_type(CFG, int mode, int flags, diskus_worker_fn worker)
 	  if (cfg->endpos && cfg->pos+max>cfg->endpos)
 	    max	= cfg->endpos-cfg->pos;
 
+	  memset(block, 0, max);
 	  TINO_ALARM_RUN();
-	  got	= tino_file_read_allE(cfg->fd, block, max);
+	  got	= tino_file_readE(cfg->fd, block, max);
 	  TINO_ALARM_RUN();
 	  if (got<=0)
 	    break;
@@ -569,7 +568,7 @@ run_read_type(CFG, int mode, int flags, diskus_worker_fn worker)
 
       if (backoff(cfg))
 	{
-	  TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%lldMiB", cfg->name, cfg->nr, cfg->pos>>20);
+	  TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
 	  return diskus_ret_read;
 	}
 
@@ -579,7 +578,7 @@ run_read_type(CFG, int mode, int flags, diskus_worker_fn worker)
 
   if (tino_file_closeE(cfg->fd))
     {
-      TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%lldMiB", cfg->name, cfg->nr, cfg->pos>>20);
+      TINO_ERR3("ETTDU101A %s: read error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
       return diskus_ret_read;
     }
   if (worker(cfg, NULL, 0))
@@ -685,7 +684,7 @@ run_write(CFG, diskus_worker_fn worker)
     }
   if (errno || tino_file_closeE(cfg->fd))
     {
-      TINO_ERR3("ETTDU105A %s: write error at sector %lld pos=%lldMiB", cfg->name, cfg->nr, cfg->pos>>20);
+      TINO_ERR3("ETTDU105A %s: write error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
       return diskus_ret_write;
     }
   return diskus_ret_ok;
@@ -694,17 +693,21 @@ run_write(CFG, diskus_worker_fn worker)
 static int
 run_it(CFG, diskus_run_fn *run, const char *name, diskus_worker_fn worker)
 {
-  int	ret;
+  int		ret;
+  time_t	start, now;
 
   cfg->name	= name;
+  time(&start);
   ret	= run(cfg, worker);
+  time(&now);
+  now	-= start;
   if (ret || cfg->err)
     {
       if (!cfg->quiet)
-        tino_data_printfA(cfg->stdout, "failed mode %s sector %lld pos=%lldMiB+%lld: errs=%d ret=%d\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull), cfg->err, ret);
+        tino_data_printfA(cfg->stdout, "failed %s mode %s sector %lld pos=%lldMiB+%lld: errs=%d ret=%d\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull), cfg->err, ret);
     }
   else if (!cfg->quiet)
-    tino_data_printfA(cfg->stdout, "success mode %s sector %lld pos=%lldMiB+%lld\n", cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull));
+    tino_data_printfA(cfg->stdout, "success %s mode %s sector %lld pos=%lldMiB+%lld\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull));
   return cfg->retflags|ret;
 }
 
@@ -719,8 +722,9 @@ main(int argc, char **argv)
   argn	= tino_getopt(argc, argv, 1, 1,
 		      TINO_GETOPT_VERSION(DISKUS_VERSION)
 		      " blockdev\n"
-		      "	This is a disk geometry checking tool.  It writes sectors\n"
-		      "	with individual IDs which later can be checked."
+		      "	This is a disk geometry checking and limited repair tool.\n"
+		      " It writes sectors with individual IDs which later can be\n"
+		      "	checked.  Or it can 'freshen' (rewrite) all sector data."
 		      ,
 
 		      TINO_GETOPT_USAGE
@@ -853,14 +857,14 @@ main(int argc, char **argv)
 
 		      TINO_GETOPT_LLONG
 		      TINO_GETOPT_SUFFIX
-		      "start N	 Start position N, suffix BKMGTPEZY for Byte, KiB, MiB, ..\n"
+		      "start N  Start position N, suffix BKMGTPEZY for Byte, KiB, MiB..\n"
 		      "		Must be a multiple of the sector size (512 or 4096)\n"
 		      "		Use suffix 'S'ector (512) or 'C'D-Rom (4096)."
 		      , &cfg.pos,
 
 		      TINO_GETOPT_LLONG
 		      TINO_GETOPT_SUFFIX
-		      "to N	End position N, suffix BKMGTPEZY for Byte, KiB, MiB, ..\n"
+		      "to N	End position N, N like in -start option.\n"
 		      "		Use a negative number to give the offset to -start"
 		      , &cfg.endpos,
 

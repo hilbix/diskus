@@ -1,15 +1,2 @@
--freshen mode and -to option added
-
-This new feature is again somehwat experimental.  With -freshen, all
-data read is rewritten to disk.  It is done overlapping, such that each
-sector is read and written two times.  The idea is to "freshen" the magnetic
-data by overwriting it with itself.  Before you ask:  I needed this to
-have some drives remap weakened (eroded) sectors which took ages to read.
-
-The -to option is to give an end option for operation.  This way you can
-give an end-position (positive value) or delta (number of bytes to operate
-on with a negative value).  For example this will read a drive from
-200MiB to 400MiB:
-
-diskus -start 200M -to -200M -read /dev/sda
-
+Output changed (using my scale library)
+Also some small changes to make read mode more reliable.
