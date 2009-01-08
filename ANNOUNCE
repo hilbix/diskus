@@ -2,4 +2,5 @@ Option -xd added
 check mode changed
 dump mode now uses extended xd from tinolib
 
-Barely tested, as always
+Warning:  Install path now is /usr/local/bin/
+so be sure to rm old version in $HOME/bin/
