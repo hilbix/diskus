@@ -1,2 +1,5 @@
-Output changed (using my scale library)
-Also some small changes to make read mode more reliable.
+Option -xd added
+check mode changed
+dump mode now uses extended xd from tinolib
+
+Barely tested, as always

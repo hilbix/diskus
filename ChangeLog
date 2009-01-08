@@ -1,3 +1,8 @@
+2009-01-06  Valentin Hilbig  <tino@zoo.03.softkill.net>
+
+	* diskus.c (dump_worker): changed to use new tino_xd_do()
+	(main, struct diskus_cfg): hexdump mode added
+
 2009-01-03  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* diskus.c (run_read_type): changed from read_allE() to readE(),

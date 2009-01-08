@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.21  2009-01-08 20:00:35  tino
+ * xd option and better reporting
+ *
  * Revision 1.20  2009-01-03 15:48:57  tino
  * Output now uses scaling, more reliable read mode
  *
@@ -126,6 +129,7 @@ struct diskus_cfg
     int			idpos;
     int			expand;
     int			quiet;
+    int			hexdump;
     int			retflags;
     long long		ts;
     const char		*keepfile, *update;
@@ -208,68 +212,33 @@ read_worker(CFG, unsigned char *ptr, size_t len)
   return 0;
 }
 
-static int
-dump_flush(CFG, unsigned char *buf, int fill)
+static void
+dump_sect(CFG, unsigned char *ptr)
 {
-  if (fill)
-    tino_xd(cfg->stdout, "", -10, cfg->pos-fill, buf, fill);
-  return 0;
+  struct tino_xd	xd;
+
+  tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos, 1);
+  tino_xd_do(&xd, ptr, SECTOR_SIZE);
+  tino_xd_exit(&xd);
 }
 
 static int
 dump_worker(CFG, unsigned char *ptr, size_t len)
 {
-  static unsigned char	buf[16];
-  static int		fill, unchanged;
-  int			i;
+  static struct tino_xd	xd;
 
   if (!ptr)
     {
-      dump_flush(cfg, buf, fill);
-      if (!len)
-        tino_xd(cfg->stdout, "", -10, cfg->pos, NULL, 0);
-      fill	= 0;
-      unchanged	= 0;
-      return 0;
+      if (len)
+	tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos, 1);
+      else
+	tino_xd_exit(&xd);
     }
-  cfg->nr	+= len/SECTOR_SIZE;
-  for (i=0; i<len; )
+  else
     {
-      register unsigned char	c;
-
-      if (unchanged==2 && fill==0)
-	{
-	  while (i+16<=len && !memcmp(ptr+i, buf, 16))
-	    {
-	      cfg->pos	+= 16;
-	      i		+= 16;
-	    }
-	  if (i>=len)
-	    break;
-	}
-
-      c	=  ptr[i];
-      if (buf[fill]!=c)
-	{
-	  buf[fill]	= c;
-	  unchanged	= 0;
-	}
-      i++;
-      cfg->pos++;
-      if (++fill<16)
-	continue;
-
-      if (unchanged==0 || cfg->expand)
-	{
-	  unchanged	= 1;
-	  dump_flush(cfg, buf, fill);
-	  fill		= 0;
-	  continue;
-	}
-      fill	= 0;
-      if (unchanged==1)
-	tino_data_printfA(cfg->stdout, "*\n");
-      unchanged	= 2;
+      tino_xd_do(&xd, ptr, len);
+      cfg->nr	+= len/SECTOR_SIZE;
+      cfg->pos	+= len;
     }
   return 0;
 }
@@ -364,6 +333,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if ((off=find_signature(cfg, ptr))<0)
 	{
 	  diskus_err(cfg, ERR_SIGNATURE_MISSING, diskus_ret_diff, "cannot find signature");
+	  dump_sect(cfg, ptr);
 	  continue;
 	}
       end	= 0;
@@ -371,25 +341,35 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if (!end || *end!=' ')
 	{
 	  diskus_err(cfg, ERR_SIGNATURE_INVALID1, diskus_ret_diff, "invalid signature(1)");
+	  dump_sect(cfg, ptr);
+	  continue;
+	}
+      ts	= strtoll(end+1, &end, 10);
+      if (!end || *end!=']')
+	{
+	  diskus_err(cfg, ERR_SIGNATURE_INVALID2, diskus_ret_diff, "invalid signature(2)");
+	  dump_sect(cfg, ptr);
 	  continue;
 	}
       if (cmp!=cfg->nr)
 	{
-	  diskus_err(cfg, ERR_SIGNATURE_MISMATCH, diskus_ret_diff, "signature number mismatch (%lld)", cmp);
+	  int	wrong;
+
+	  create_sector(cmp, sect, (char *)(ptr+off), (end-(char *)ptr)-off+1);
+	  wrong	= memcmp(ptr, sect, SECTOR_SIZE);
+	  diskus_err(cfg, ERR_SIGNATURE_MISMATCH, diskus_ret_diff,
+		     "signature number mismatch (%lld), %s data, %s timestamp",
+		     cmp, (wrong ? "invalid" : "valid"), (ts==cfg->ts ? "good" : "wrong"));
+	  if (wrong)
+	    dump_sect(cfg, ptr);
 	  continue;
 	}
-      ts	= strtoll(end+1, &end, 10);
       if (ts!=cfg->ts && cfg->ts)
 	{
 	  diskus_log(cfg, "timestamp jumped from %lld to %lld\n", cfg->ts, ts);
 	  cfg->retflags	|= diskus_ret_old;
 	}
       cfg->ts	= ts;
-      if (!end || *end!=']')
-	{
-	  diskus_err(cfg, ERR_SIGNATURE_INVALID2, diskus_ret_diff, "invalid signature(2)");
-	  continue;
-	}
       create_sector(cfg->nr, sect, (char *)(ptr+off), (end-(char *)ptr)-off+1);
       if (memcmp(ptr, sect, SECTOR_SIZE))
 	{
@@ -723,14 +703,14 @@ main(int argc, char **argv)
 		      TINO_GETOPT_VERSION(DISKUS_VERSION)
 		      " blockdev\n"
 		      "	This is a disk geometry checking and limited repair tool.\n"
-		      " It writes sectors with individual IDs which later can be\n"
+		      "	It writes sectors with individual IDs which later can be\n"
 		      "	checked.  Or it can 'freshen' (rewrite) all sector data."
 		      ,
 
 		      TINO_GETOPT_USAGE
 		      "help	this help"
 		      ,
-		      /*xy*/
+		      /*y*/
 
 		      TINO_GETOPT_FLAG
 		      "async	Do not use O_SYNC nor O_DIRECT\n"
@@ -892,6 +872,10 @@ main(int argc, char **argv)
 		      TINO_GETOPT_FLAG
 		      "write	Write mode, destroy data (mode 'gen' needs this)"
 		      , &writemode,
+
+		      TINO_GETOPT_FLAG
+		      "xd	Do hexdump of sector in certain error cases"
+		      , &cfg.hexdump,
 #if 0
 		      TINO_GETOPT_STRING
 		      "zone file  Append timing information to file"
