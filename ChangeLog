@@ -1,5 +1,8 @@
 2009-01-08  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
+	* Makefile.tino (ADD_LDFLAGS): Install now into /usr/local/bin/ as
+	it is a system tool
+
 	* diskus.c (dump_sect, check_worker): dump offset added to correct
 	offset printing
 
