@@ -2,7 +2,7 @@
  *
  * Disk geometry checking utility
  *
- * Copyright (C)2007-2008 Valentin Hilbig <webmaster@scylla-charybdis.com>
+ * Copyright (C)2007-2009 Valentin Hilbig <webmaster@scylla-charybdis.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.22  2009-01-08 20:03:44  tino
+ * Fix for printed offset
+ *
  * Revision 1.21  2009-01-08 20:00:35  tino
  * xd option and better reporting
  *
@@ -213,11 +216,11 @@ read_worker(CFG, unsigned char *ptr, size_t len)
 }
 
 static void
-dump_sect(CFG, unsigned char *ptr)
+dump_sect(CFG, int off, unsigned char *ptr)
 {
   struct tino_xd	xd;
 
-  tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos, 1);
+  tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos+off, 1);
   tino_xd_do(&xd, ptr, SECTOR_SIZE);
   tino_xd_exit(&xd);
 }
@@ -333,7 +336,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if ((off=find_signature(cfg, ptr))<0)
 	{
 	  diskus_err(cfg, ERR_SIGNATURE_MISSING, diskus_ret_diff, "cannot find signature");
-	  dump_sect(cfg, ptr);
+	  dump_sect(cfg, i, ptr);
 	  continue;
 	}
       end	= 0;
@@ -341,14 +344,14 @@ check_worker(CFG, unsigned char *ptr, size_t len)
       if (!end || *end!=' ')
 	{
 	  diskus_err(cfg, ERR_SIGNATURE_INVALID1, diskus_ret_diff, "invalid signature(1)");
-	  dump_sect(cfg, ptr);
+	  dump_sect(cfg, i, ptr);
 	  continue;
 	}
       ts	= strtoll(end+1, &end, 10);
       if (!end || *end!=']')
 	{
 	  diskus_err(cfg, ERR_SIGNATURE_INVALID2, diskus_ret_diff, "invalid signature(2)");
-	  dump_sect(cfg, ptr);
+	  dump_sect(cfg, i, ptr);
 	  continue;
 	}
       if (cmp!=cfg->nr)
@@ -361,7 +364,7 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 		     "signature number mismatch (%lld), %s data, %s timestamp",
 		     cmp, (wrong ? "invalid" : "valid"), (ts==cfg->ts ? "good" : "wrong"));
 	  if (wrong)
-	    dump_sect(cfg, ptr);
+	    dump_sect(cfg, i, ptr);
 	  continue;
 	}
       if (ts!=cfg->ts && cfg->ts)
