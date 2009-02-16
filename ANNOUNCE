@@ -1,6 +1,5 @@
-Option -xd added
-check mode changed
-dump mode now uses extended xd from tinolib
+Option -jump (experimental feature) changed.
 
-Warning:  Install path now is /usr/local/bin/
-so be sure to rm old version in $HOME/bin/
+There still is no way to use -jump and -freshen such,
+that defective sectors are overwritten,
+to give the drive a chance to remap the sector.
