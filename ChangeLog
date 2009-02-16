@@ -1,3 +1,8 @@
+2009-02-16  Valentin Hilbig  <tino@zoo.03.softkill.net>
+
+	* diskus.c (backoff): Bugfix, backoff could go backwards in some
+	cases.
+
 2009-01-08  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* Makefile.tino (ADD_LDFLAGS): Install now into /usr/local/bin/ as

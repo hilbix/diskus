@@ -20,6 +20,10 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.23  2009-02-16 05:09:39  tino
+ * Backoff fixes, however there seems to be a second bug,
+ * such that it sometimes runs over the end.
+ *
  * Revision 1.22  2009-01-08 20:03:44  tino
  * Fix for printed offset
  *
@@ -449,8 +453,8 @@ backoff(CFG)
       break;
     case 5:
       if (!cfg->skip)
-	cfg->skip	= SKIP_BYTES/2;
-      if (cfg->nxt==cfg->pos)
+	cfg->skip	= SKIP_BYTES;
+      else if (cfg->nxt==cfg->pos)
 	cfg->skip	*= 2;
       break;
     }
@@ -779,7 +783,7 @@ main(int argc, char **argv)
 		      "		Use a high negative prime number to make it look like random"
 		      , &cfg.idpos,
 		      -1,
-		      4096-36+1,
+		      SECTOR_SIZE-36,
 #endif
 		      TINO_GETOPT_FLAG
 		      TINO_GETOPT_MAX
@@ -850,7 +854,6 @@ main(int argc, char **argv)
 		      "to N	End position N, N like in -start option.\n"
 		      "		Use a negative number to give the offset to -start"
 		      , &cfg.endpos,
-
 #if 0
 		      TINO_GETOPT_STRING
 		      "update R	Update Range for option -keep.  Range is: Letter[From][-To]..\n"
