@@ -4,6 +4,7 @@
 	cases.
 	(backoff): changed such, that it starts with (or below) the
 	blocksize, if blocksize is smaller than SKIP_BYTES.
+	(null_worker): -null option now works again
 
 2009-01-08  Valentin Hilbig  <tino@zoo.03.softkill.net>
 

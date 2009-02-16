@@ -1,4 +1,6 @@
-Option -jump (experimental feature) changed.
+Bugfixes:
+Option -null now works again.
+Option -jump (experimental feature) now works for small blocksizes.
 
 There still is no way to use -jump and -freshen such,
 that defective sectors are overwritten,

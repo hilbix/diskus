@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.25  2009-02-16 05:45:21  tino
+ * -null worker shall work again
+ *
  * Revision 1.24  2009-02-16 05:38:51  tino
  * Initial jumps are now bound by the blocksize.
  *
@@ -426,6 +429,7 @@ null_worker(CFG, unsigned char *ptr, size_t len)
       flag	= len;
     }
   cfg->pos	+= len;
+  cfg->nr	+= len/SECTOR_SIZE;
   return 0;
 }
 
