@@ -2,6 +2,8 @@
 
 	* diskus.c (backoff): Bugfix, backoff could go backwards in some
 	cases.
+	(backoff): changed such, that it starts with (or below) the
+	blocksize, if blocksize is smaller than SKIP_BYTES.
 
 2009-01-08  Valentin Hilbig  <tino@zoo.03.softkill.net>
 

@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.24  2009-02-16 05:38:51  tino
+ * Initial jumps are now bound by the blocksize.
+ *
  * Revision 1.23  2009-02-16 05:09:39  tino
  * Backoff fixes, however there seems to be a second bug,
  * such that it sometimes runs over the end.
@@ -429,36 +432,42 @@ null_worker(CFG, unsigned char *ptr, size_t len)
 static int
 backoff(CFG)
 {
+  unsigned long long	jump;
+
+  /* Keep it at a power of 2
+   */
+  for (jump=SKIP_BYTES; jump>cfg->bs; jump>>=1);
+
   switch (cfg->jump)
     {
     default:
       return 1;
 
     case 1:
-      cfg->skip	= SKIP_BYTES;
+      cfg->skip	= jump;
       break;
     case 2:
       if (cfg->nxt!=cfg->pos)
 	cfg->skip	= 0;
-      cfg->skip	+= SKIP_BYTES;
+      cfg->skip	+= jump;
       break;
     case 3:
       if (cfg->nxt==cfg->pos || !cfg->skip)
-	cfg->skip	+= SKIP_BYTES;
+	cfg->skip	+= jump;
       break;
     case 4:
       if (cfg->nxt!=cfg->pos || !cfg->skip)
-	cfg->skip = SKIP_BYTES/2;
+	cfg->skip = jump/2;
       cfg->skip	*= 2;
       break;
     case 5:
       if (!cfg->skip)
-	cfg->skip	= SKIP_BYTES;
+	cfg->skip	= jump;
       else if (cfg->nxt==cfg->pos)
 	cfg->skip	*= 2;
       break;
     }
-  cfg->nxt	= (cfg->pos+cfg->skip)& ~(unsigned long long)(SKIP_BYTES-1);
+  cfg->nxt	= (cfg->pos+cfg->skip)& ~(unsigned long long)(jump-1);
   return 0;
 }
 
