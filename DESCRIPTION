@@ -2,14 +2,16 @@ Disk geometry checking and repair tool
 # $Header$
 #
 # $Log$
+# Revision 1.3  2009-02-16 05:06:50  tino
+# Documentation improved very little
+#
 # Revision 1.2  2009-01-03 15:48:57  tino
 # Output now uses scaling, more reliable read mode
 #
 # Revision 1.1  2007-09-18 03:05:46  tino
 # First version
 
-This program is a high level harddrive diagnostic and limited repair
-tool.
+DISKUS is a high level harddrive diagnostic and limited repair tool.
 
 It checks the disk geometry by writing sectors with a numbered ID to
 the harddrive.  (THIS ERASES ALL DATA ON THE DEVICE!)  Later you can
@@ -32,6 +34,6 @@ You can also NUL the drive (like dd if=/dev/zero of=/dev/hdwhatever),
 just checkread it or do a hexdump.  Diskus uses O_DIRECT/O_SYNC to
 lessen memory cache impact and has a little progress meter.
 
-Pleae note that diskus is no tool to erase your harddrive according to
-DOD algorithms or write certain bit check patterns or data onto it
+Please note that diskus is no tool to erase your harddrive according
+to DOD algorithms or write certain bit check patterns or data onto it
 like dd.

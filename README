@@ -2,6 +2,7 @@ $Header$
 
 Disk geometry checking utility
 
+
 Warning:
 ========
 
@@ -97,16 +98,16 @@ you overwrite the first GB with the second GB.
 bus reset messages start filling your syslog.  However after rewriting
 the sectors (-freshen option), all this problems suddenly vanish.
 
-DISKUS can help in all these cases.  However it is not a bit pattern
-nor a harddrive stress testing tool.  However without a tool like
-DISKUS it is not easy to diagnose or repair problems like those noted
-above.
+DISKUS can help a little bit in all these cases (sporadic problems are
+very difficult to spot).  However it is not a bit pattern nor a
+harddrive stress testing tool.  But without a tool like DISKUS it is
+not easy to diagnose or repair problems like those noted above.
 
 I wrote it, because I needed it.  How much I needed it I realized when
 I started to use it to test my hard drives before I start to rely upon
 them.  I have several dozen harddrives, mostly external USB drives,
 connected to my computer, and when something unusal happens, I now can
-take the drive offline and test it.
+take the drive offline and test it using DISKUS.
 
 Note that you can observe similar problems on failing computer
 hardware.  So errors reported by DISKUS need not show that a hard
@@ -118,12 +119,12 @@ reproduce the outcome of the test on another computer, too.
 Bugs:
 =====
 
-- Currently writing to a drive stops with an error.  This is because I
-did not find a reliable way to detect the drive size.  For example,
-CD-ROM drives report wrong sizes on certain CD-ROMs.
+- Writing to a drive might stop with an error.  This is because I did
+not find a reliable way to detect the drive size.  For example, CD-ROM
+drives report wrong sizes on certain CD-ROMs.
 
 - On certain errors a re-seek would be needed, such that the -check
-option can recover to the correct position.  This is not yet
+option can recover to the correct position.  This is not yet fully
 implemented.
 
 - DISKUS cannot skip past some type of errors.  This is by design and
@@ -133,13 +134,24 @@ will never be fixed.
 lines on screen because the output was printed over some progress
 meter text.  In this case use IO redirection and an editor.
 
+
+Contact:
+========
+
+To contact me you can use my pager at
+	http://hydra.geht.net/pager.php
+
+Note that I am no harddrive repair center, I am just a programmer with
+no idea about how to build or repair drives myself.  So please use it
+wisely.  (Note that you have to solve a little riddle to contact me to
+protect the pager against SPAM.)
+
 -Tino <webmaster@scylla-charybdis.com>
 http://www.scylla-charybdis.com/tool.php/diskus
 
 $Log$
+Revision 1.3  2009-02-16 05:07:05  tino
+Documentation improved very little
+
 Revision 1.2  2008-12-15 00:58:30  tino
 Prominent note of freshen option
-
-Revision 1.1  2007-12-10 03:01:07  tino
-added
-
