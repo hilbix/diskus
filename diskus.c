@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.26  2009-02-16 07:03:04  tino
+ * Option -xd fixes
+ *
  * Revision 1.25  2009-02-16 05:45:21  tino
  * -null worker shall work again
  *
@@ -230,6 +233,8 @@ dump_sect(CFG, int off, unsigned char *ptr)
 {
   struct tino_xd	xd;
 
+  if (!cfg->hexdump)
+    return;
   tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos+off, 1);
   tino_xd_do(&xd, ptr, SECTOR_SIZE);
   tino_xd_exit(&xd);

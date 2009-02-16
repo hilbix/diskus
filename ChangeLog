@@ -1,3 +1,8 @@
+2009-02-16  Valentin Hilbig  <tino@firebird.03.softkill.net>
+
+	* diskus.c (dump_sect): Option -xd now works as intended (before
+	it always was active).
+
 2009-02-16  Valentin Hilbig  <tino@zoo.03.softkill.net>
 
 	* diskus.c (backoff): Bugfix, backoff could go backwards in some
