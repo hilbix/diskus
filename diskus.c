@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.27  2009-05-19 16:39:10  tino
+ * tinolib naming standard
+ *
  * Revision 1.26  2009-02-16 07:03:04  tino
  * Option -xd fixes
  *
@@ -959,7 +962,7 @@ main(int argc, char **argv)
 #if 0
   cfg.stdout	= tino_data_stream(NULL, stdout);
 #else
-  cfg.stdout	= tino_data_file(NULL, 1);
+  cfg.stdout	= tino_data_fileA(NULL, 1);
 #endif
   tino_alarm_set(1, print_state, &cfg);
 
