@@ -1,4 +1,1 @@
-Bugfixes:
-Option -xd now works
-
-Previously Option -x always was active, this was not intended.
+CygWin Bugfixes:  Now compiles under CygWin.
