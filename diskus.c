@@ -20,6 +20,9 @@
  * 02110-1301 USA.
  *
  * $Log$
+ * Revision 1.28  2011-06-03 11:21:23  tino
+ * CygWin dislikes ->stdout as struct member.  Renamed to ->out.
+ *
  * Revision 1.27  2009-05-19 16:39:10  tino
  * tinolib naming standard
  *
@@ -142,7 +145,7 @@ struct diskus_cfg
     long long		nr, pos, endpos;
     int			fd;
     const char		*name;
-    TINO_DATA		*stdout;
+    TINO_DATA		*out;
     int			signpos;
     int			err, errtype;
     int			idpos;
@@ -238,7 +241,7 @@ dump_sect(CFG, int off, unsigned char *ptr)
 
   if (!cfg->hexdump)
     return;
-  tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos+off, 1);
+  tino_xd_init(&xd, cfg->out, "", -10, cfg->pos+off, 1);
   tino_xd_do(&xd, ptr, SECTOR_SIZE);
   tino_xd_exit(&xd);
 }
@@ -251,7 +254,7 @@ dump_worker(CFG, unsigned char *ptr, size_t len)
   if (!ptr)
     {
       if (len)
-	tino_xd_init(&xd, cfg->stdout, "", -10, cfg->pos, 1);
+	tino_xd_init(&xd, cfg->out, "", -10, cfg->pos, 1);
       else
 	tino_xd_exit(&xd);
     }
@@ -299,10 +302,10 @@ find_signature(CFG, const unsigned char *ptr)
 static void
 diskus_vlog(CFG, TINO_VA_LIST list)
 {
-  tino_data_printfA(cfg->stdout, "sector %llu: ", cfg->nr);
-  tino_data_vsprintfA(cfg->stdout, list);
-  tino_data_printfA(cfg->stdout, "\n");
-  tino_data_syncA(cfg->stdout, 0);
+  tino_data_printfA(cfg->out, "sector %llu: ", cfg->nr);
+  tino_data_vsprintfA(cfg->out, list);
+  tino_data_printfA(cfg->out, "\n");
+  tino_data_syncA(cfg->out, 0);
 }
 
 static void
@@ -712,10 +715,10 @@ run_it(CFG, diskus_run_fn *run, const char *name, diskus_worker_fn worker)
   if (ret || cfg->err)
     {
       if (!cfg->quiet)
-        tino_data_printfA(cfg->stdout, "failed %s mode %s sector %lld pos=%lldMiB+%lld: errs=%d ret=%d\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull), cfg->err, ret);
+        tino_data_printfA(cfg->out, "failed %s mode %s sector %lld pos=%lldMiB+%lld: errs=%d ret=%d\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull), cfg->err, ret);
     }
   else if (!cfg->quiet)
-    tino_data_printfA(cfg->stdout, "success %s mode %s sector %lld pos=%lldMiB+%lld\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull));
+    tino_data_printfA(cfg->out, "success %s mode %s sector %lld pos=%lldMiB+%lld\n", tino_scale_interval(1, (long)now, 2, 4), cfg->mode, cfg->nr, cfg->pos>>20, cfg->pos&((1ull<<20)-1ull));
   return cfg->retflags|ret;
 }
 
@@ -784,7 +787,8 @@ main(int argc, char **argv)
 		      TINO_GETOPT_MIN
 		      "freshen  'freshen' mode, write data which was read.\n"
 		      "		This updates the data again after it was read.\n"
-		      "		This, of course, needs -write."
+		      "		This, of course, needs -write.\n"
+		      "		WARNING! freshen WILL DAMAGE FILESYSTEMS IF MOUNTED"
 		      , &cfg.mode,
 		      mode_freshen,
 
@@ -960,9 +964,9 @@ main(int argc, char **argv)
     }
 
 #if 0
-  cfg.stdout	= tino_data_stream(NULL, stdout);
+  cfg.out	= tino_data_stream(NULL, stdout);
 #else
-  cfg.stdout	= tino_data_fileA(NULL, 1);
+  cfg.out	= tino_data_fileA(NULL, 1);
 #endif
   tino_alarm_set(1, print_state, &cfg);
 
