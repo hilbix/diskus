@@ -1,1 +1,1 @@
-CygWin Bugfixes:  Now compiles under CygWin.
+This fixes a bug in a library part, from which it is unknown if diskus is affected.
