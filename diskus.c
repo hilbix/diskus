@@ -1,8 +1,7 @@
-/* $Header$
- *
+/*
  * Disk geometry checking utility
  *
- * Copyright (C)2007-2009 Valentin Hilbig <webmaster@scylla-charybdis.com>
+ * Copyright (C)2007-2014 Valentin Hilbig <webmaster@scylla-charybdis.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -18,74 +17,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301 USA.
- *
- * $Log$
- * Revision 1.28  2011-06-03 11:21:23  tino
- * CygWin dislikes ->stdout as struct member.  Renamed to ->out.
- *
- * Revision 1.27  2009-05-19 16:39:10  tino
- * tinolib naming standard
- *
- * Revision 1.26  2009-02-16 07:03:04  tino
- * Option -xd fixes
- *
- * Revision 1.25  2009-02-16 05:45:21  tino
- * -null worker shall work again
- *
- * Revision 1.24  2009-02-16 05:38:51  tino
- * Initial jumps are now bound by the blocksize.
- *
- * Revision 1.23  2009-02-16 05:09:39  tino
- * Backoff fixes, however there seems to be a second bug,
- * such that it sometimes runs over the end.
- *
- * Revision 1.22  2009-01-08 20:03:44  tino
- * Fix for printed offset
- *
- * Revision 1.21  2009-01-08 20:00:35  tino
- * xd option and better reporting
- *
- * Revision 1.20  2009-01-03 15:48:57  tino
- * Output now uses scaling, more reliable read mode
- *
- * Revision 1.19  2008-12-14 01:26:16  tino
- * more future
- *
- * Revision 1.18  2008-12-14 01:09:13  tino
- * New version with -freshen and -to
- *
- * Revision 1.17  2008-10-12 21:05:35  tino
- * Updated to new library functions
- *
- * Revision 1.16  2008-09-28 17:54:53  tino
- * Backoff strategy
- *
- * Revision 1.15  2008-09-28 14:38:12  tino
- * Option -jump
- *
- * Revision 1.14  2008-09-28 12:31:46  tino
- * List possible suffixes in help
- *
- * Revision 1.13  2008-09-27 23:19:56  tino
- * Page aligned buffer gets rid of need for option -async
- *
- * Revision 1.12  2008-08-03 16:58:54  tino
- * Added error if -write is not needed
- *
- * Revision 1.11  2008-05-28 10:44:15  tino
- * write mode showed a too high count on EOF
- *
- * Revision 1.9  2008-05-27 17:33:41  tino
- * Option quiet activated
- *
- * Revision 1.7  2007-12-30 15:53:14  tino
- * Option -expand
- *
- * Revision 1.6  2007-12-30 03:05:56  tino
- * Bugfix for -dump
- *
- * Revision 1.3  2007/09/18 03:15:09  tino
- * Minor BUG removed.
  */
 
 #include "tino/alarm.h"
@@ -491,9 +422,6 @@ run_read_type(CFG, int mode, int flags, diskus_worker_fn worker)
 {
   int	got;
   void	*block;
-  unsigned long long	nxt;
-
-  nxt	= 0;
 
   if ((cfg->fd=tino_file_openE(cfg->name, mode|(cfg->async ? 0 : flags)))<0)
     {

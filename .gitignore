@@ -1,6 +1,7 @@
 Makefile
 Makefile.md5
 *.d
+*.o
 *.cvsignore*
 diskus
 diskus_version.h

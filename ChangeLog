@@ -1,3 +1,8 @@
+2014-02-09  Valentin Hilbig  <tino@subproject.org>
+
+	* diskus.c (run_read_type): unused variable removed to suppress
+	warning which shows up as error on Ubuntu
+
 2009-02-16  Valentin Hilbig  <tino@firebird.03.softkill.net>
 
 	* diskus.c (dump_sect): Option -xd now works as intended (before
