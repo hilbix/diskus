@@ -1,11 +1,11 @@
 # Makefile automatically generated, do not edit!
 # This output (only this Makefile) is Public Domain.
 #
-#@MD5TINOIGN@ Creation date: Sun Feb  9 01:08:42 CET 2014
+#@MD5TINOIGN@ Creation date: Sat May 17 08:37:57 CEST 2014
 #
 # This file is based on following files:
 #@MD5TINOIGN@ 1: Makefile.tino
-#@MD5TINOIGN@ 2: /home/tino/git/diskus/tino/Makefile.proto
+#@MD5TINOIGN@ 2: /home/tino/src/diskus/tino/Makefile.proto
 
 #
 #@MD5TINOIGN@ included: Makefile.tino
@@ -34,7 +34,7 @@ ADD_LDFLAGS=
  INSTALLPATH=/usr/local
 
 #
-#@MD5TINOIGN@ included: /home/tino/git/diskus/tino/Makefile.proto
+#@MD5TINOIGN@ included: /home/tino/src/diskus/tino/Makefile.proto
 #
 
 # Automatically generated from "PROGS" above
@@ -169,10 +169,10 @@ $(PROG1):	$(PROG1).o $(OBJS) $(LIBS)
 
 # included: diskus.d
 $(PROG1).o:  diskus.c tino/alarm.h tino/file.h tino/sysfix.h \
- tino/sysfix_cygwin.h tino/type.h tino/fatal.h tino/ex.h tino/arg.h \
- tino/alloc.h tino/err.h tino/debug.h tino/signals.h tino/file.h \
- tino/getopt.h tino/xd.h tino/data.h tino/buf_printf.h tino/buf.h \
- tino/codec.h tino/alloc.h tino/err.h tino/md5.h tino/scale.h \
+ tino/sysfix_cygwin.h tino/sysfix_diet.h tino/type.h tino/fatal.h \
+ tino/ex.h tino/arg.h tino/alloc.h tino/err.h tino/debug.h tino/signals.h \
+ tino/file.h tino/getopt.h tino/xd.h tino/data.h tino/buf_printf.h \
+ tino/buf.h tino/codec.h tino/alloc.h tino/err.h tino/md5.h tino/scale.h \
  tino/auxbuf.h tino/str.h diskus_version.h
 
 # end

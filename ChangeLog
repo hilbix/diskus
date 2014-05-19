@@ -1,3 +1,9 @@
+2014-05-17  Valentin Hilbig  <tino@aragog.03.softkill.org>
+
+	* diskus.c (patch_worker, main): added patch command (and many
+	other changes which are needed for this, see GIT commit)
+	(freshen_worker): better error magics
+
 2014-02-09  Valentin Hilbig  <tino@subproject.org>
 
 	* diskus.c (run_read_type): unused variable removed to suppress

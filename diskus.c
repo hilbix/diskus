@@ -56,7 +56,7 @@ enum
     diskus_ret_old	= 64,	/* Checksum timestamp jumps	*/
   };
 static const char	mode_dump[]="dump", mode_gen[]="gen", mode_check[]="check", mode_null[]="null", mode_read[]="read";
-static const char	mode_freshen[]="freshen";
+static const char	mode_freshen[]="freshen", mode_patch[]="patch";
 
 enum diskus_errtype
   {
@@ -67,6 +67,7 @@ enum diskus_errtype
     ERR_SIGNATURE_MISMATCH,
     ERR_DATA_MISMATCH,
     ERR_READ,
+    ERR_PATCHED,
   };
 
 struct diskus_cfg
@@ -93,7 +94,7 @@ struct diskus_cfg
 
 #define	CFG	struct diskus_cfg *cfg
 
-typedef int	diskus_worker_fn(CFG, unsigned char *, size_t);
+typedef int	diskus_worker_fn(CFG, unsigned char *, int);
 typedef int	diskus_run_fn(CFG, diskus_worker_fn worker);
 
 static int
@@ -119,19 +120,19 @@ get_pos_str(CFG)
 /* This requires repositioning like it is done in run_read_type()
  */
 static int
-freshen_worker(CFG, unsigned char *ptr, size_t len)
+freshen_worker(CFG, unsigned char *ptr, int len)
 {
   int	put;
 
-  if (!ptr)
+  if (!ptr || len<0)
     return 0;
 
   if (tino_file_lseekE(cfg->fd, cfg->pos, SEEK_SET)!=cfg->pos)
     {
-      TINO_ERR2("ETTDU120E %s: cannot seek to %lld", cfg->name, cfg->pos);
+      TINO_ERR2("ETTDU106E %s: cannot seek to %lld", cfg->name, cfg->pos);
       return diskus_ret_seek;
     }
-  put	= tino_file_writeI(cfg->fd, ptr, len);
+  put	= tino_file_writeE(cfg->fd, ptr, len);
   if (put<0)
     {
       TINO_ERR3("ETTDU121B %s: rewrite error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
@@ -145,7 +146,7 @@ freshen_worker(CFG, unsigned char *ptr, size_t len)
       cfg->pos	+= put;
       return -1;
     }
-  if (put!=len && errno!=EINTR)
+  if (put!=len)
     TINO_ERR5("WTTDU123A %s: short write: %d instead of %d at pos=%lld (now %lld)", cfg->name, put, len, cfg->pos, cfg->pos+put);
   if (put>SECTOR_SIZE && put>cfg->bs/2)
     put	/= 2;			/* double step freshen, such that we run over each position two times with interleaving	*/
@@ -155,9 +156,9 @@ freshen_worker(CFG, unsigned char *ptr, size_t len)
 }
 
 static int
-read_worker(CFG, unsigned char *ptr, size_t len)
+read_worker(CFG, unsigned char *ptr, int len)
 {
-  if (!ptr)
+  if (!ptr || len<0)
     return 0;
 
   cfg->nr	+= len/SECTOR_SIZE;
@@ -178,13 +179,15 @@ dump_sect(CFG, int off, unsigned char *ptr)
 }
 
 static int
-dump_worker(CFG, unsigned char *ptr, size_t len)
+dump_worker(CFG, unsigned char *ptr, int len)
 {
   static struct tino_xd	xd;
 
+  if (len<0)
+    return 0;
   if (!ptr)
     {
-      if (len)
+      if (len>0)
 	tino_xd_init(&xd, cfg->out, "", -10, cfg->pos, 1);
       else
 	tino_xd_exit(&xd);
@@ -268,13 +271,73 @@ diskus_err(CFG, enum diskus_errtype err, int retflag, const char *text, ...)
   cfg->err++;
 }
 
+/* This requires repositioning like it is done in run_read_type()
+ */
 static int
-check_worker(CFG, unsigned char *ptr, size_t len)
+patch_worker(CFG, unsigned char *ptr, int len)
+{
+  int		put;
+  size_t	all;
+
+  if (!ptr)
+    return 0;
+  if (len>=0)
+    {
+      /* Just update counters	*/
+      cfg->pos	+= len;
+      cfg->nr	+= len/SECTOR_SIZE;
+      return 0;
+    }
+
+  all = -len;
+  if (all!=cfg->bs)
+    {
+      TINO_ERR1("ETTDU111F incomplete block to write: %d", all);
+      return diskus_ret_param;
+    }
+  if (all&(all-1))
+    {
+      TINO_ERR1("ETTDU112F blocksize not power of 2: %d", all);
+      return diskus_ret_param;
+    }
+  if (all<512 || all>65536)
+    {
+      TINO_ERR1("ETTDU113F unsupported blocksize: must be 512 to 64K: %d", all);
+      return diskus_ret_param;
+    }
+  if (cfg->pos&(cfg->bs&1))
+    {
+      TINO_ERR2("ETTDU114F %s: attempt to seek to non sector boundary %lld", cfg->name, cfg->pos);
+      return diskus_ret_seek;
+    }
+  if (tino_file_lseekE(cfg->fd, cfg->pos, SEEK_SET)!=cfg->pos)
+    {
+      TINO_ERR2("ETTDU106E %s: cannot seek to %lld", cfg->name, cfg->pos);
+      return diskus_ret_seek;
+    }
+  memset(ptr, 0, all);
+  put	= tino_file_writeE(cfg->fd, ptr, all);
+  if (put<0)
+    {
+      TINO_ERR3("ETTDU105A %s: write error at sector %lld pos=%siB", cfg->name, cfg->nr, get_pos_str(cfg));
+      return diskus_ret_write;
+    }
+  if (put!=all)
+    TINO_ERR5("WTTDU123A %s: short write: %d instead of %d at pos=%lld (now %lld)", cfg->name, put, all, cfg->pos, cfg->pos+put);
+  else
+    diskus_err(cfg, ERR_PATCHED, diskus_ret_read, "patched");
+
+  /* You need -jump to continue */
+  return 0;
+}
+
+static int
+check_worker(CFG, unsigned char *ptr, int len)
 {
   int		i;
   unsigned char	sect[MAX_SECTOR_SIZE];
 
-  if (!ptr)
+  if (!ptr || len<0)
     return 0;
 
   for (i=0; i<len; i+=SECTOR_SIZE, ptr+=SECTOR_SIZE, cfg->nr++)
@@ -337,12 +400,12 @@ check_worker(CFG, unsigned char *ptr, size_t len)
 }
 
 static int
-gen_worker(CFG, unsigned char *ptr, size_t len)
+gen_worker(CFG, unsigned char *ptr, int len)
 {
   int		i;
   char		id[64];
 
-  if (!ptr)
+  if (!ptr || len<0)
     return 0;
 
   for (i=0; i<len; i+=SECTOR_SIZE, ptr+=SECTOR_SIZE)
@@ -356,10 +419,12 @@ gen_worker(CFG, unsigned char *ptr, size_t len)
 }
 
 static int
-null_worker(CFG, unsigned char *ptr, size_t len)
+null_worker(CFG, unsigned char *ptr, int len)
 {
   static size_t	flag;
 
+  if (len<0)
+    return 0;
   if (!ptr)
     {
       flag	= 0;
@@ -480,11 +545,17 @@ run_read_type(CFG, int mode, int flags, diskus_worker_fn worker)
 	  got	= tino_file_readE(cfg->fd, block, max);
 	  TINO_ALARM_RUN();
 	  if (got<=0)
-	    break;
-	  
+	    {
+	      int tmp;
+
+              if ((tmp=worker(cfg, block, -max))!=0)
+		return tmp;
+	      break;
+            }
+
 	  if (SECTOR_OFFSET(got))
 	    {
-	      TINO_ERR5("ETTDU109A %s: partial sector read: %d pos=%lld (%lld+%d)", cfg->name, SECTOR_OFFSET(got), cfg->pos+got, cfg->pos, got);
+	      TINO_ERR5("ETTDU108A %s: partial sector read: %d pos=%lld (%lld+%d)", cfg->name, SECTOR_OFFSET(got), cfg->pos+got, cfg->pos, got);
 	      return diskus_ret_short;
 	    }
 
@@ -607,8 +678,9 @@ run_write(CFG, diskus_worker_fn worker)
 	  break;
 	}
     }
-  
-  if (put>=0 && errno==ENOSPC)
+
+  /* put always is >= 0, we see the error in errno	*/
+  if (errno==ENOSPC)
     {
       /* correct the counts to the current position
        */
@@ -663,7 +735,8 @@ main(int argc, char **argv)
 		      " blockdev\n"
 		      "	This is a disk geometry checking and limited repair tool.\n"
 		      "	It writes sectors with individual IDs which later can be\n"
-		      "	checked.  Or it can 'freshen' (rewrite) all sector data."
+		      "	checked.  It can 'freshen' (rewrite) all sector data or\n"
+		      "	try to 'patch' unreadable sectors."
 		      ,
 
 		      TINO_GETOPT_USAGE
@@ -784,6 +857,18 @@ main(int argc, char **argv)
 		      , &cfg.mode,
 		      mode_pattern,
 #endif
+		      TINO_GETOPT_STRINGFLAGS
+		      TINO_GETOPT_MIN
+		      "patch	patch drive\n"
+		      "		Scan drive for unreadable sectors and overwrite them with NUL.\n"
+		      "		Set bs to the hardware sector size of your drive\n"
+		      "		(512 or 4096, see S.M.A.R.T.).  This cannot be fast.\n"
+		      "		This needs -jump to freshen a second and later read errors.\n"
+		      "		This, of course, needs -write.\n"
+		      "		WARNING! freshen WILL DAMAGE FILESYSTEMS IF MOUNTED"
+		      , &cfg.mode,
+		      mode_patch,
+
 		      TINO_GETOPT_FLAG
 		      "quiet	Quiet mode, print no progress meter and no result.\n"
 		      "		Success only is signalled in the return status"
@@ -882,6 +967,11 @@ main(int argc, char **argv)
   else if (!strcmp(cfg.mode, mode_freshen))
     {
       fn	= freshen_worker;
+      run	= run_readwrite;
+    }
+  else if (!strcmp(cfg.mode, mode_patch))
+    {
+      fn	= patch_worker;
       run	= run_readwrite;
     }
 

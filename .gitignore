@@ -1,5 +1,3 @@
-Makefile
-Makefile.md5
 *.d
 *.o
 *.cvsignore*

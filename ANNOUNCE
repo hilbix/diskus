@@ -1,1 +1,2 @@
-This fixes a bug in a library part, from which it is unknown if diskus is affected.
+Announcements are now in the git commit log:
+git log --follow VERSION
