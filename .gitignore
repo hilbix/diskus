@@ -1,5 +1,4 @@
 *.d
 *.o
-*.cvsignore*
 diskus
 diskus_version.h
