@@ -305,7 +305,7 @@ patch_worker(CFG, unsigned char *ptr, int len)
       TINO_ERR1("ETTDU113F unsupported blocksize: must be 512 to 64K: %d", all);
       return diskus_ret_param;
     }
-  if (cfg->pos&(cfg->bs&1))
+  if (cfg->pos&(cfg->bs-1))
     {
       TINO_ERR2("ETTDU114F %s: attempt to seek to non sector boundary %lld", cfg->name, cfg->pos);
       return diskus_ret_seek;
